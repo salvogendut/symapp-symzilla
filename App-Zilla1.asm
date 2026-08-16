@@ -1,10 +1,16 @@
+; WinAPE source compatibility for SjAsmPlus.
+    DEFINE write OUTPUT
+    DEFINE READ INCLUDE
+    DEFINE nolist OPT listoff
+    OPT --syntax=abfw --dirbol
+
 nolist
 
+write "build/symzilla.exe"
 org #1000
-write "f:\symbos\apps\symzilla.exe"
-READ "..\..\..\SRC-Main\SymbOS-Constants.asm"
+READ "SymbOS-Constants.asm"
 READ "App-Zilla.asm"
 
+write "build/test3.dox"
 org #0000
-write "f:\symbos\apps\test1.dox"
-READ "Dox-Test1.asm"
+READ "Dox-Test3.asm"

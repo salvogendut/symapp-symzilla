@@ -2,13 +2,13 @@
 ;@                                                                            @
 ;@                   S y m Z i l l a    (Internet Browser)                    @
 ;@                                                                            @
-;@             (c) 2007-2010 by Prodatron / SymbiosiS (Jörn Mika)             @
+;@             (c) 2007-2010 by Prodatron / SymbiosiS (Jorn Mika)             @
 ;@                                                                            @
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 ;todo
 ;- status bar korrekt an/aus
-;+ DOX-aendern -> spalten-infos dürfen keine 0en enthalten (z.b. unterstes und oberstes bit setzen und bitshift durchführen; multiplyer +1)
+;+ DOX-aendern -> spalten-infos durfen keine 0en enthalten (z.b. unterstes und oberstes bit setzen und bitshift durchfuhren; multiplyer +1)
 ;+ xml2dox
 ;+ inline objects
 ;- caching/scroll in big dox files
@@ -59,41 +59,41 @@ relocate_start
 
 ;### PROGRAMM-KOPF ############################################################
 
-prgdatcod       equ 0           ;Länge Code-Teil (Pos+Len beliebig; inklusive Kopf!)
-prgdatdat       equ 2           ;Länge Daten-Teil (innerhalb 16K Block)
-prgdattra       equ 4           ;Länge Transfer-Teil (ab #C000)
+prgdatcod       equ 0           ;Lange Code-Teil (Pos+Len beliebig; inklusive Kopf!)
+prgdatdat       equ 2           ;Lange Daten-Teil (innerhalb 16K Block)
+prgdattra       equ 4           ;Lange Transfer-Teil (ab #C000)
 prgdatorg       equ 6           ;Original-Origin
-prgdatrel       equ 8           ;Anzahl Einträge Relocator-Tabelle
-prgdatstk       equ 10          ;Länge Stack (Transfer-Teil beginnt immer mit Stack)
+prgdatrel       equ 8           ;Anzahl Eintrage Relocator-Tabelle
+prgdatstk       equ 10          ;Lange Stack (Transfer-Teil beginnt immer mit Stack)
 prgdatrs1       equ 12          ;*reserved* (3 bytes)
 prgdatnam       equ 15          ;program name (24+1[0] chars)
 prgdatflg       equ 40          ;flags (+1=16colour icon available)
 prgdat16i       equ 41          ;file offset of 16colour icon
 prgdatrs2       equ 43          ;*reserved* (5 bytes)
 prgdatidn       equ 48          ;"SymExe10"
-prgdatcex       equ 56          ;zusätzlicher Speicher für Code-Bereich
-prgdatdex       equ 58          ;zusätzlicher Speicher für Data-Bereich
-prgdattex       equ 60          ;zusätzlicher Speicher für Transfer-Bereich
+prgdatcex       equ 56          ;zusatzlicher Speicher fur Code-Bereich
+prgdatdex       equ 58          ;zusatzlicher Speicher fur Data-Bereich
+prgdattex       equ 60          ;zusatzlicher Speicher fur Transfer-Bereich
 prgdatres       equ 62          ;*reserviert* (26 bytes)
 prgdatver       equ 88          ;required OS version (1.0)
 prgdatism       equ 90          ;Icon (klein)
 prgdatibg       equ 109         ;Icon (gross)
-prgdatlen       equ 256         ;Datensatzlänge
+prgdatlen       equ 256         ;Datensatzlange
 
 prgpstdat       equ 6           ;Adresse Daten-Teil
 prgpsttra       equ 8           ;Adresse Transfer-Teil
-prgpstspz       equ 10          ;zusätzliche Prozessnummern (4*1)
+prgpstspz       equ 10          ;zusatzliche Prozessnummern (4*1)
 prgpstbnk       equ 14          ;Bank (1-8)
-prgpstmem       equ 48          ;zusätzliche Memory-Bereiche (8*5)
+prgpstmem       equ 48          ;zusatzliche Memory-Bereiche (8*5)
 prgpstnum       equ 88          ;Programm-Nummer
 prgpstprz       equ 89          ;Prozess-Nummer
 
-prgcodbeg   dw prgdatbeg-prgcodbeg  ;Länge Code-Teil
-            dw prgtrnbeg-prgdatbeg  ;Länge Daten-Teil
-            dw prgtrnend-prgtrnbeg  ;Länge Transfer-Teil
+prgcodbeg   dw prgdatbeg-prgcodbeg  ;Lange Code-Teil
+            dw prgtrnbeg-prgdatbeg  ;Lange Daten-Teil
+            dw prgtrnend-prgtrnbeg  ;Lange Transfer-Teil
 prgdatadr   dw #1000                ;Original-Origin                    POST Adresse Daten-Teil
-prgtrnadr   dw relocate_count       ;Anzahl Einträge Relocator-Tabelle  POST Adresse Transfer-Teil
-prgprztab   dw prgstk-prgtrnbeg     ;Länge Stack                        POST Tabelle Prozesse
+prgtrnadr   dw relocate_count       ;Anzahl Eintrage Relocator-Tabelle  POST Adresse Transfer-Teil
+prgprztab   dw prgstk-prgtrnbeg     ;Lange Stack                        POST Tabelle Prozesse
             dw 0                    ;*reserved*
 prgbnknum   db 0                    ;*reserved*                         POST bank number
             db "SymZilla Browser":ds 8:db 0 ;Name
@@ -101,11 +101,11 @@ prgbnknum   db 0                    ;*reserved*                         POST ban
             dw prgicn16c-prgcodbeg  ;16 colour icon offset
             ds 5                    ;*reserved*
 prgmemtab   db "SymExe10"           ;SymbOS-EXE-Kennung                 POST Tabelle Speicherbereiche
-            dw 0                            ;zusätzlicher Code-Speicher
-            dw 16380-prgtrnbeg+prgdatbeg    ;zusätzlicher Data-Speicher
-            dw renviwmax*24                 ;zusätzlicher Transfer-Speicher
+            dw 0                            ;zusatzlicher Code-Speicher
+            dw 16380-prgtrnbeg+prgdatbeg    ;zusatzlicher Data-Speicher
+            dw renviwmax*24                 ;zusatzlicher Transfer-Speicher
             ds 26                   ;*reserviert*
-            db 0,2                  ;required OS version (2.0)
+            db 0,3                  ;required OS version (3.0, Network Daemon API)
 prgicnsml   db 2,8,8,#30,#F0,#43,#2C,#53,#AC,#43,#2C,#53,#AC,#43,#2C,#53,#AC,#F0,#C0
 prgicnbig   db 6,24,24
             db #00,#00,#00,#00,#01,#0E,#00,#00,#01,#0E,#7C,#F0,#00,#00,#13,#F8,#E7,#3E,#00,#00,#35,#F7,#97,#8F,#00,#00,#34,#F1,#9F,#E3,#00,#00,#34,#F6,#C7,#F9,#00,#00,#F9,#F7,#6F,#CB,#00,#32,#F6,#CF,#F9,#4F
@@ -115,7 +115,7 @@ prgicnbig   db 6,24,24
 ;### PRGPRZ -> Programm-Prozess
 dskprzn     db 2
 sysprzn     db 3
-windatprz   equ 3   ;Prozeßnummer
+windatprz   equ 3   ;Prozessnummer
 windatsup   equ 51  ;Nummer des Superfensters+1 oder 0
 prgwin      db 0    ;Nummer des Haupt-Fensters
 
@@ -191,7 +191,8 @@ prgprz3 inc l
         jp brwlnk
 
 ;### PRGEND -> Exit program
-prgend  call lodclr             ;remove current DOX
+prgend  call netabort           ;close an active download and remove its temp file
+        call lodclr             ;remove current DOX
         ld a,(prgwin)           ;close window(s) to prevent the delay caused by config saving
         call diaclo0
         call favman0
@@ -261,6 +262,7 @@ prgpar2 ld (hl),0
 ;### Input      HL=filename
 ;### Output     A=type (0=unknown, 1=file, 2=HTTP, 16=about blank, 17=about symzilla)
 dirloci db "HTTP://???????",2
+        db "HTTPS://??????",2
         db "?:\???????????",1
         db "?:/???????????",1
         db "ABOUT:BLANK",0,"??",16
@@ -268,7 +270,7 @@ dirloci db "HTTP://???????",2
         db "ABOUT:SYMZILLA",17
 
 dirloc  ld de,dirloci
-        ld c,6
+        ld c,7
 dirloc1 push hl
         push de
         ld b,14
@@ -311,7 +313,7 @@ dirend1 ld a,(hl)
         inc c
         cp "/"
         jr z,dirend0
-        cp "\"
+        cp #5c
         jr z,dirend0
         cp ":"
         jr z,dirend0
@@ -405,17 +407,17 @@ diraddb ld (de),a           ;*** maybe same dir
         jr diradd4
 diraddx cp "/"
         ret z
-        cp "\"
+        cp #5c
         ret
 
-;### MSGGET -> Message für Programm abholen
+;### MSGGET -> Message fur Programm abholen
 ;### Ausgabe    IXH=Absender, (recmsgb)=Message, A=(recmsgb+0), IY=recmsgb
 ;### Veraendert 
 msgget  ld a,(prgprzn)
-        db #dd:ld l,a           ;IXL=Rechner-Prozeß-Nummer
+        db #dd:ld l,a           ;IXL=Rechner-Prozess-Nummer
         db #dd:ld h,-1
         ld iy,prgmsgb           ;IY=Messagebuffer
-        rst #08                 ;Message holen -> IXL=Status, IXH=Absender-Prozeß
+        rst #08                 ;Message holen -> IXL=Status, IXH=Absender-Prozess
         or a
         db #dd:dec l
         jr nz,msgget
@@ -425,13 +427,13 @@ msgget  ld a,(prgprzn)
         ret nz
         jp prgend
 
-;### MSGDSK -> Message für Programm von Desktop-Prozess abholen
+;### MSGDSK -> Message fur Programm von Desktop-Prozess abholen
 ;### Ausgabe    CF=0 -> keine Message vorhanden, CF=1 -> IXH=Absender, (recmsgb)=Message, A=(recmsgb+0), IY=recmsgb
 ;### Veraendert 
 msgdsk  call msgget
         ld a,(dskprzn)
         db #dd:cp h
-        jr nz,msgdsk            ;Message von anderem als Desktop-Prozeß -> ignorieren
+        jr nz,msgdsk            ;Message von anderem als Desktop-Prozess -> ignorieren
         ld a,(prgmsgb)
         ret
 
@@ -454,10 +456,10 @@ msgsnd1 db #dd:ld h,a
         rst #10
         ret
 
-;### CLCLCS -> Wandelt Groß- in Kleinbuchstaben um
+;### CLCLCS -> Wandelt Gross- in Kleinbuchstaben um
 ;### Eingabe    A=Zeichen
 ;### Ausgabe    A=lcase(Zeichen)
-;### Verändert  F
+;### Verandert  F
 clclcs  cp "A"
         ret c
         cp "Z"+1
@@ -465,10 +467,10 @@ clclcs  cp "A"
         add "a"-"A"
         ret
 
-;### STRINP -> Initialisiert Textinput (abhängig vom String, den es bearbeitet)
+;### STRINP -> Initialisiert Textinput (abhangig vom String, den es bearbeitet)
 ;### Eingabe    IX=Control
-;### Ausgabe    HL=Stringende (0), BC=Länge (maximal 255)
-;### Verändert  AF
+;### Ausgabe    HL=Stringende (0), BC=Lange (maximal 255)
+;### Verandert  AF
 strinp  ld l,(ix+0)
         ld h,(ix+1)
         call strlen
@@ -479,10 +481,10 @@ strinp  ld l,(ix+0)
         ld (ix+6),a
         ret
 
-;### STRLEN -> Ermittelt Länge eines Strings
+;### STRLEN -> Ermittelt Lange eines Strings
 ;### Eingabe    HL=String
-;### Ausgabe    HL=Stringende (0), BC=Länge (maximal 255)
-;### Verändert  -
+;### Ausgabe    HL=Stringende (0), BC=Lange (maximal 255)
+;### Verandert  -
 strlen  push af
         xor a
         ld bc,255
@@ -584,6 +586,8 @@ hlpopn  ld a,(SySystem_HLPFLG)
 ;### CFGSET -> config dialogue
 cfgset  ld ix,configinp1
         call strinp
+        ld ix,configinp2
+        call strinp
         ld de,configwin
         call diaopn
         jp prgprz0
@@ -608,7 +612,8 @@ cfghom3 ld de,cfghom
         jp prgprz0
 
 ;### CFGINI -> Generates config path and loads configuration
-cfgnam  db "appzilla.ini",0:cfgnam0
+cfgnam  db "appzilla.ini",0
+cfgnam0:
 cfgpth  dw 0
 cfgfil  dw 0
 
@@ -634,7 +639,7 @@ cfgini2 dec hl              ;search start of filename
         ld a,(hl)
         cp "/"
         jr z,cfgini3
-        cp "\"
+        cp #5c
         jr z,cfgini3
         cp ":"
         jr z,cfgini3
@@ -1224,11 +1229,11 @@ brwopn0 ld ix,prgobjinp1
         call dirloc                 ;test location type
         cp 1
         jr z,brwopn6
+        cp 2
+        jp z,brwopnb
         ld hl,prgmsgerr2b
-        jr c,brwopn8
+        jp c,brwopn8
         cp 16
-        ld hl,meserrurlx            ;** HTTP - not supported yet
-        jr c,brwopn5
         jr nz,brwopna
         ld hl,mesaboblnx            ;** about blank
         call mesini
@@ -1242,10 +1247,21 @@ brwopna ld hl,mesabosymx            ;** about SymZilla
         call mesini
         ld hl,mesabotit
         jr brwopn4
+brwopnb call netdox                 ;** HTTP - fetch a proxy-produced DOX file
+        jp c,brwopn8
+        ld a,(prgbnknum)
+        ld c,a
+        ld hl,nettmppth
+        call loddox
+        push af
+        call nettmpdel
+        pop af
+        jr brwopnc
 brwopn6 ld a,(prgbnknum)            ;** disc - load document
         ld c,a
         ld hl,doxpth
         call loddox                 ;CF=1 -> A=error code (1=file not found [L=fileman-errcode], 2=file corrupt, 3=error while loading [L=fileman-errcode], 4=memory full)
+brwopnc
         jr nc,brwopn1
         cp 2
         jr c,brwopn7
@@ -1284,7 +1300,8 @@ brwopn8 ld (prgmsgerra),hl          ;error message (as window)
         jp prgprz0
 
 ;### BRWCLO -> Closes the current DOX file
-brwclo  call lodclr
+brwclo  call netabort
+        call lodclr
         jp prgprz0
 
 ;### BRWSTA -> Shows the current browser-status
@@ -1335,7 +1352,8 @@ brwsta1 ld (prgwinobj0+4),hl
         jp msgsnd
 
 ;### BRWNEW -> starts a new instance of SymZilla
-brwnewf db "appzilla.exe ":brwnewf0
+brwnewf db "appzilla.exe "
+brwnewf0:
 brwnew  ld de,(cfgfil)      ;copy application filename
         ld hl,brwnewf
         ld bc,brwnewf0-brwnewf
@@ -1390,6 +1408,10 @@ brwlnk2 ld c,a
         ld bc,256
         rst #20:dw jmp_bnkcop
         pop hl
+        ld a,(doxinf)           ;method byte: 0=GET, 1=POST
+        or a
+        jp nz,prgprz0           ;forms/POST are not implemented yet
+        inc hl                  ;skip the method byte before resolving the URL
         ld de,doxpth
         call diradd
         jp brwopn
@@ -1516,8 +1538,815 @@ navrel  ld a,(navhislen)
         jr navbak0
 
 ;### NAVSTP -> Navigation stop
-navstp  ;...
+navstp  call netabort
         jp prgprz0
+
+;### NETDOX -> Fetches an HTTP URL as a temporary DOX document.
+;### Input      (doxpth)=absolute URL
+;### Output     CF=0 temporary file ready, CF=1 HL=error text
+; The transport body is filled in below; these entry points are kept explicit
+; because navigation, Stop and application shutdown all share their cleanup.
+netdox  call netabort
+        call netmkpth
+        jr c,netdox0
+        call netprxprs
+        jr c,netdox0
+        call netorgprs
+        jr c,netdox0
+        call SyNet_NETINI
+        ld hl,netdmnerr
+        jp c,netfail
+        ld hl,netprxhost
+        call SyNet_DNSRSV
+        ld hl,netdnserr
+        jp c,netfail
+        ld hl,-1
+        ld de,(netprxport)
+        xor a
+        call SyNet_TCPOPN
+        ld hl,netconerr
+        jp c,netfail
+        ld (nethnd),a
+        ld a,1
+        ld (netsockflg),a
+        call netwaitcon
+        ld hl,netconerr
+        jp c,netfail
+        call netrequest
+        ld hl,netreqerr
+        jp c,netfail
+        call netheaders
+        ld hl,netrsperr
+        jp c,netfail
+		call netbody
+		ld hl,netbodyerr
+		jp c,netfail
+		call netsockclo
+		or a
+		ret
+netdox0 ld hl,netcfgerr
+        scf
+        ret
+
+; Abort is idempotent.  A separate flag is mandatory because socket handle 0
+; is valid in the Network Daemon API.
+netabort
+        call netsockclo
+		jp nettmpdel
+nettmpdel
+		call netfileclo
+		ld a,(nettmpflg)
+		or a
+		ret z
+		ld hl,nettmppth
+		ld a,(prgbnknum)
+		db #dd:ld h,a
+		call syscll
+		db MSC_SYS_SYSFIL
+		db FNC_FIL_DIRDEL
+		ret c
+		xor a
+		ld (nettmpflg),a
+		ret
+
+netfail push hl
+        call netabort
+        pop hl
+        scf
+        ret
+
+netsockclo
+        ld a,(netsockflg)
+        or a
+        ret z
+        xor a
+        ld (netsockflg),a
+        ld a,(nethnd)
+        push af
+        call SyNet_TCPDIS
+        pop af
+        call SyNet_TCPCLO
+        ret
+
+;### NETMKPTH -> Creates a fully-qualified, per-process 8.3 temporary path.
+; cfgfil is the stable executable-filename boundary.  The code-end pathname
+; tail is also used by New Window and may contain a URL, so never scan it for
+; the last slash here.
+netmkpth
+		ld hl,(cfgfil)
+		ld de,(cfgpth)
+		or a
+		sbc hl,de
+		ld a,h
+		or a
+		jr nz,netmkpbad
+		ld a,l
+		or a
+		jr z,netmkpbad
+		cp 241                 ;leave room for SZxx.DOX and its terminator
+		jr nc,netmkpbad
+		ld c,l
+		ld b,0
+		ld hl,(cfgpth)
+		ld de,nettmppth
+		ldir
+		ld a,"S"
+        ld (de),a
+        inc de
+        ld a,"Z"
+        ld (de),a
+        inc de
+        ld a,(prgprzn)
+        rrca
+        rrca
+        rrca
+        rrca
+        and 15
+        call nethex
+        ld (de),a
+        inc de
+        ld a,(prgprzn)
+        and 15
+        call nethex
+        ld (de),a
+        inc de
+        ld hl,nettmpext
+		ld bc,5
+		ldir
+		or a
+		ret
+netmkpbad
+		scf
+		ret
+nethex  add "0"
+        cp "9"+1
+        ret c
+        add "A"-"9"-1
+        ret
+
+;### NETPRXPRS -> Parses cfgproxy without modifying the saved configuration.
+; Accepted initial form is hostname[:port], with port 5001 as the default.
+netprxprs
+        ld ix,cfgproxy
+        ld de,netprxhost
+        ld b,63
+        ld a,(ix+0)
+        or a
+        jr z,netprxbad
+netprx1 ld a,(ix+0)
+        or a
+        jr z,netprx3
+        cp ":"
+        jr z,netprx4
+        cp "/"
+        jr z,netprxbad
+        cp #5c
+        jr z,netprxbad
+        cp 33
+        jr c,netprxbad
+        ld (de),a
+        inc de
+        inc ix
+        djnz netprx1
+netprxbad
+        scf
+        ret
+netprx3 xor a
+        ld (de),a
+        ld hl,5001
+        ld (netprxport),hl
+        or a
+        ret
+netprx4 xor a
+        ld (de),a
+        inc ix
+        ld hl,0
+        ld a,(ix+0)
+        or a
+        jr z,netprxbad
+netprx5 ld a,(ix+0)
+        or a
+        jr z,netprx8
+        sub "0"
+        jr c,netprxbad
+        cp 10
+        jr nc,netprxbad
+        ld c,a
+        ld a,h                  ;65535/10=6553; final digit <=5
+        cp #19
+        jr c,netprx6
+        jr nz,netprxbad
+        ld a,l
+        cp #99
+        jr c,netprx6
+        jr nz,netprxbad
+        ld a,c
+        cp 6
+        jr nc,netprxbad
+netprx6 add hl,hl               ;x2
+        ld d,h
+        ld e,l
+        add hl,hl               ;x4
+        add hl,hl               ;x8
+        add hl,de               ;x10
+        ld e,c
+        ld d,0
+        add hl,de
+        inc ix
+        jr netprx5
+netprx8 ld a,h
+        or l
+        jr z,netprxbad
+        ld (netprxport),hl
+        or a
+        ret
+
+;### NETORGPRS -> Extracts the target authority for the HTTP Host header.
+; The TCP connection still goes to cfgproxy; the absolute URL is sent intact.
+netorgprs
+        ld hl,doxpth
+netorg0 ld a,(hl)
+        or a
+        jr z,netorg0a
+        cp "#"
+        jr z,netorgbad
+		cp 33
+		jr c,netorgbad
+        inc hl
+        jr netorg0
+netorg0a
+        ld hl,doxpth
+        ld b,8
+netorg1 ld a,(hl)
+        or a
+        jr z,netorgbad
+        inc hl
+        cp ":"
+        jr z,netorg2
+        djnz netorg1
+netorgbad
+        scf
+        ret
+netorg2 ld a,(hl)
+        cp "/"
+        jr nz,netorgbad
+        inc hl
+        ld a,(hl)
+        cp "/"
+        jr nz,netorgbad
+        inc hl
+        ld de,netorigin
+        ld b,127
+netorg3 ld a,(hl)
+        or a
+        jr z,netorg5
+        cp "/"
+        jr z,netorg5
+        cp "?"
+        jr z,netorg5
+        cp "#"
+        jr z,netorgbad
+        cp "@"
+        jr z,netorgbad
+        cp 33
+        jr c,netorgbad
+        ld (de),a
+        inc de
+        inc hl
+        djnz netorg3
+        jr netorgbad
+netorg5 ld hl,netorigin
+        or a
+        sbc hl,de
+        jr z,netorgbad
+        xor a
+        ld (de),a
+        ret
+
+;### NETWAITCON -> Waits at most roughly 30 seconds for TCP establishment.
+netwaitcon
+        call nettimeini
+netwcon1 call SyNet_NETEVT
+        jr c,netwcon3
+        ld e,a
+        ld a,(nethnd)
+        cp e
+        jr nz,netwcon4
+        ld a,l
+        and 127
+        cp 2
+        jr z,netwconok
+        jr nc,netwconbad
+        jr netwcon4
+netwcon3 ld a,(nethnd)
+        call SyNet_TCPSTA
+        jr c,netwconbad
+        ld a,l
+        and 127
+        cp 2
+        jr z,netwconok
+        jr nc,netwconbad
+netwcon4 rst #30
+        call nettick
+        jr nz,netwcon1
+netwconbad
+        scf
+        ret
+netwconok
+        or a
+        ret
+
+nettimeini
+        ld hl,1500
+        ld (nettimer),hl
+        ret
+nettick ld hl,(nettimer)
+        dec hl
+        ld (nettimer),hl
+        ld a,h
+        or l
+        ret
+
+;### NETREQUEST -> Sends an HTTP/1.0 proxy request in bounded segments.
+netrequest
+        ld hl,netreqget
+        call netsndz
+        ret c
+        ld hl,doxpth
+        call netsndz
+        ret c
+        ld hl,netreqhost
+        call netsndz
+        ret c
+        ld hl,netorigin
+        call netsndz
+        ret c
+        ld hl,netreqhdr
+        call netsndz
+        ret c
+        ld hl,jmp_scrget
+        rst #28
+        ld hl,netcap2
+        ld a,d
+        cp 16
+        jr nc,netreq16
+        cp 4
+        jr c,netreqcap
+        ld hl,netcap4
+        jr netreqcap
+netreq16
+        ld hl,netcap16
+netreqcap
+        call netsndz
+        ret c
+        ld hl,netreqend
+        jp netsndz
+
+netsndz push hl
+        call strlen
+        pop hl
+        jp netsend
+
+; Partial sends are retried; a zero-progress send is bounded by nettimer.
+netsend ld (netsndptr),hl
+        ld (netsndlen),bc
+        call nettimeini
+netsend1
+        ld bc,(netsndlen)
+        ld a,b
+        or c
+        ret z
+        ld hl,(netsndptr)
+        ld a,(nethnd)
+        ld de,(prgbnknum)
+        call SyNet_TCPSND
+        ret c
+        push hl                 ;remaining byte count
+        ld hl,(netsndptr)
+        add hl,bc               ;advance by transferred byte count
+        ld (netsndptr),hl
+        pop hl
+        ld (netsndlen),hl
+        ld a,b
+        or c
+        jr z,netsend2
+        call nettimeini
+        jr netsend1
+netsend2
+        rst #30
+        call nettick
+        jr nz,netsend1
+        scf
+        ret
+
+;### NETHEADERS -> Parses a complete HTTP response header.
+; Any final 2xx-5xx status is accepted, including proxy-generated error pages,
+; but only with the negotiated DOX MIME type and an exact, bounded length.
+netheaders
+        xor a
+        ld (SyNet_TCPRLN_Length),a
+        ld (netheadflg),a
+        ld (netheadnum),a
+        ld (netlength+0),a
+        ld (netlength+1),a
+        ld (netlength+2),a
+        call netgetline
+        ret c
+		ld a,d
+		cp 254
+		jr nc,netheadbad
+        call netstatus
+        ret c
+nethead1 call netgetline
+        ret c
+        ld a,d
+        or a
+        jr z,nethead8
+        cp 254
+        jr nc,netheadbad
+        ld hl,netheadnum
+        inc (hl)
+        ld a,(hl)
+        cp 65
+        jr nc,netheadbad
+        ld hl,netline
+        ld de,netcltxt
+        call netprefix
+        jr z,netheadcl
+        ld hl,netline
+        ld de,netcttxt
+        call netprefix
+        jr z,netheadct
+        ld hl,netline
+        ld de,nettettxt
+        call netprefix
+        jr z,netheadbad         ;chunked/other transfer codings unsupported
+        jr nethead1
+netheadcl
+        call netclprs
+        jr c,netheadbad
+        jr nethead1
+netheadct
+        call netctprs
+        jr c,netheadbad
+        jr nethead1
+nethead8 ld a,(netheadflg)
+        cp 3
+        jr nz,netheadbad
+        ld a,(netlength+0)      ;zero-length is never a valid DOX
+        ld hl,(netlength+1)     ;bytes 1-2, used only for the zero test
+        or l
+        or h
+        jr z,netheadbad
+        or a
+        ret
+netheadbad
+        scf
+        ret
+
+; ReceiveLine retains bytes following the blank line in its SDK buffer.  Try
+; that buffer before sleeping so multiple already-buffered header lines work.
+netgetline
+        ld de,(prgbnknum)
+        ld hl,netline
+        ld a,(nethnd)
+        call SyNet_TCPRLN
+        ret c
+        ret nz
+        call netwaitdata
+        jr nc,netgetline
+        ret
+
+; Wait for data while draining asynchronous events; TCPSTA covers data that
+; was already queued before the event check.  Data+close is handled as data.
+netwaitdata
+        call nettimeini
+netwait1 call SyNet_NETEVT
+        jr c,netwait3
+        ld e,a
+        ld a,(nethnd)
+        cp e
+        jr nz,netwait5
+        bit 7,l
+        jr nz,netwaitok
+        ld a,l
+        and 127
+        cp 3
+        jr nc,netwaitbad
+        jr netwait5
+netwait3 ld a,(nethnd)
+        call SyNet_TCPSTA
+        jr c,netwaitbad
+        bit 7,l
+        jr nz,netwaitok
+        ld a,l
+        and 127
+        cp 3
+        jr nc,netwaitbad
+netwait5 rst #30
+        call nettick
+        jr nz,netwait1
+netwaitbad
+        scf
+        ret
+netwaitok
+        or a
+        ret
+
+; Validate the status line syntactically but deliberately do not require 200.
+netstatus
+        ld hl,netline
+        ld de,nethttptxt
+        call netprefix
+        jr nz,netstatbad
+        ld b,8
+netstat1 ld a,(hl)
+        or a
+        jr z,netstatbad
+        inc hl
+        cp " "
+        jr z,netstat2
+        djnz netstat1
+        jr netstatbad
+netstat2 ld a,(hl)
+        cp "2"
+        jr c,netstatbad
+        cp "6"
+        jr nc,netstatbad
+        inc hl
+        ld b,2
+netstat3 ld a,(hl)
+        sub "0"
+        jr c,netstatbad
+        cp 10
+        jr nc,netstatbad
+        inc hl
+        djnz netstat3
+        ld a,(hl)
+        or a
+        ret z
+        cp " "
+        ret z
+netstatbad
+        scf
+        ret
+
+; Case-insensitive prefix comparison.  ZF means match and HL is advanced.
+netprefix
+        ld a,(de)
+        or a
+        ret z
+        call netupper
+        ld c,a
+        ld a,(hl)
+        call netupper
+        cp c
+        ret nz
+        inc hl
+        inc de
+        jr netprefix
+netupper cp "a"
+        ret c
+        cp "z"+1
+        ret nc
+        sub "a"-"A"
+        ret
+netspc  ld a,(hl)
+        cp " "
+        jr z,netspc1
+        cp 9
+        ret nz
+netspc1 inc hl
+        jr netspc
+
+; Parse Content-Length as a bounded 24-bit decimal.  The pre-multiply bound
+; 9830 plus final digit <=4 enforces the inclusive 96 KiB (98304-byte) cap.
+netclprs
+        ld a,(netheadflg)
+        bit 0,a
+        jp nz,netclbad
+        call netspc
+        push hl
+        pop ix
+        xor a
+        ld (netdigits),a
+netcl1 ld a,(ix+0)
+        or a
+        jr z,netclend
+        cp " "
+        jr z,netcltail
+        cp 9
+        jr z,netcltail
+        sub "0"
+        jr c,netclbad
+        cp 10
+        jr nc,netclbad
+        ld (netdigit),a
+        ld a,(netlength+2)
+        or a
+        jr nz,netclbad
+        ld hl,(netlength)
+        ld de,9830
+        or a
+        sbc hl,de
+        jr c,netcl2
+        jr nz,netclbad
+        ld a,(netdigit)
+        cp 5
+        jr nc,netclbad
+netcl2 ld de,(netlength)
+        ld hl,0
+        xor a
+        ld b,10
+netcl3 add hl,de
+        adc a,0
+        djnz netcl3
+        ld c,a
+        ld a,(netdigit)
+        ld e,a
+        ld d,0
+        add hl,de
+        ld (netlength),hl
+        ld a,c
+        adc a,0
+        ld (netlength+2),a
+        ld hl,netdigits
+        inc (hl)
+        inc ix
+        jr netcl1
+netcltail
+        push ix
+        pop hl
+        call netspc
+        ld a,(hl)
+        or a
+        jr nz,netclbad
+netclend
+        ld a,(netdigits)
+        or a
+        jr z,netclbad
+        ld hl,netheadflg
+        set 0,(hl)
+        or a
+        ret
+netclbad
+        scf
+        ret
+
+netctprs
+        ld a,(netheadflg)
+        bit 1,a
+        jr nz,netctbad
+        call netspc
+        ld de,netmimetype
+        call netprefix
+        jr nz,netctbad
+        ld a,(hl)
+        or a
+        jr z,netctok
+        cp ";"
+        jr z,netctok
+        cp " "
+        jr z,netcttail
+        cp 9
+        jr nz,netctbad
+netcttail
+        call netspc
+        ld a,(hl)
+        or a
+        jr z,netctok
+        cp ";"
+        jr nz,netctbad
+netctok ld hl,netheadflg
+        set 1,(hl)
+        or a
+        ret
+netctbad
+        scf
+        ret
+
+;### NETBODY -> Streams exactly Content-Length bytes into a temporary DOX.
+; Header parsing may have already buffered initial body bytes in TCPRLN.
+netbody
+		call netfilnew
+		ret c
+		ld hl,(netlength)
+		ld (netremain),hl
+		ld a,(netlength+2)
+		ld (netremain+2),a
+		ld a,(SyNet_TCPRLN_Length)
+		or a
+		jr z,netbody2
+		ld c,a
+		ld b,0
+		ld hl,SyNet_TCPRLN_Buffer
+		call netwrite
+		ret c
+		xor a
+		ld (SyNet_TCPRLN_Length),a
+netbody2
+		ld a,(netremain+2)
+		ld hl,(netremain)
+		or h
+		or l
+		jr z,netbody8
+		call netwaitdata
+		ret c
+		ld bc,1024
+		ld a,(netremain+2)
+		or a
+		jr nz,netbody3
+		ld hl,(netremain)
+		ld a,h
+		cp 4
+		jr nc,netbody3
+		ld b,h
+		ld c,l
+netbody3
+		ld a,(nethnd)
+		ld de,(prgbnknum)
+		ld hl,netrcvbuf
+		call SyNet_TCPRCV
+		ret c
+		ld a,b
+		or c
+		jr z,netbody2
+		ld hl,netrcvbuf
+		call netwrite
+		ret c
+		jr netbody2
+netbody8
+		call netfileclo
+		ret
+
+; File handle zero is valid, so open/existence state is tracked separately.
+netfilnew
+		ld hl,nettmppth
+		ld a,(prgbnknum)
+		db #dd:ld h,a
+		xor a
+		call syscll
+		db MSC_SYS_SYSFIL
+		db FNC_FIL_FILNEW
+		ret c
+		ld (netfilhnd),a
+		ld a,1
+		ld (netfileflg),a
+		ld (nettmpflg),a
+		or a
+		ret
+
+netfileclo
+		ld a,(netfileflg)
+		or a
+		ret z
+		xor a
+		ld (netfileflg),a
+		ld a,(netfilhnd)
+		call syscll
+		db MSC_SYS_SYSFIL
+		db FNC_FIL_FILCLO
+		ret
+
+; Input HL=source, BC=length.  A write must fit the remaining count and the
+; File Manager must report the full length; partial/disk-full writes fail.
+netwrite
+		ld (netwriteptr),hl
+		ld (netwritelen),bc
+		ld a,(netremain+2)
+		or a
+		jr nz,netwrite1
+		ld hl,(netremain)
+		or a
+		sbc hl,bc
+		ret c
+netwrite1
+		ld a,(netfilhnd)
+		ld de,(prgbnknum)
+		ld hl,(netwriteptr)
+		ld bc,(netwritelen)
+		call syscll
+		db MSC_SYS_SYSFIL
+		db FNC_FIL_FILOUT
+		ret c
+		or a
+		jr nz,netwritebad
+		ld hl,(netwritelen)
+		or a
+		sbc hl,bc
+		jr nz,netwritebad
+		ld bc,(netwritelen)
+		ld hl,(netremain)
+		or a
+		sbc hl,bc
+		ld (netremain),hl
+		ld a,(netremain+2)
+		sbc a,0
+		ld (netremain+2),a
+		ret nc
+netwritebad
+		scf
+		ret
 
 
 ;==============================================================================
@@ -1530,7 +2359,8 @@ mesabotit   db "About:",0
 mesabosymx  dw mesabosym1-mesabosym0,mesabosym0-mesabosym
 mesabosym   db 0,0, 255,1, 14, 0,0, #11,-1,2,2, #e1,3,1,1, 16*11+15, 16*0+3,16*3+1
             db 2,4,1, "SymZilla", 2,3,1, 8,3, 8,3
-            db 1,16*3, "Version 0.2",8,3
+            db 1,16*3, "Version 0.3",8,3
+            db 1,16*1, "HTTP requires Network Daemon and GB-proxy.",8,3
             db 0,-1
 mesabosym0  db ".", 0,-1
 mesabosym1
@@ -1594,7 +2424,7 @@ mesini1 ld a,(hl)
         ld bc,5
         add hl,bc
         ex de,hl        ;DE=ziel+1
-        sbc hl,de       ;HL=länge
+        sbc hl,de       ;HL=lange
         ex de,hl
         ld (hl),e
         inc hl
@@ -3670,6 +4500,63 @@ clcmul3 ld a,h
         ex de,hl
         ret
 
+; Network scratch storage lives in the writable code area so it does not
+; reduce the renderer's fixed data-area/TEXT capacity.
+nettmppth ds 256
+netprxhost ds 64
+netprxport dw 5001
+netorigin ds 128
+nethnd db 0
+netsockflg db 0
+netfilhnd db 0
+netfileflg db 0
+nettmpflg db 0
+nettimer dw 0
+netsndptr dw 0
+netsndlen dw 0
+netremain ds 3
+netwriteptr dw 0
+netwritelen dw 0
+netrcvbuf ds 1024
+netheadflg db 0
+netheadnum db 0
+netlength ds 3
+netdigits db 0
+netdigit db 0
+netline ds 256
+nettmpext db ".DOX",0
+netreqget db "GET ",0
+netreqhost db " HTTP/1.0",13,10,"Host: ",0
+netreqhdr db 13,10,"Connection: close",13,10
+          db "User-Agent: SymZilla/0.3 (SymbOS)",13,10
+          db "Accept: application/x-symbos-dox",13,10
+          db "Accept-Encoding: identity",13,10
+          db "X-GB-SGX: ",0
+netcap2 db "0,2",0
+netcap4 db "0,4",0
+netcap16 db "5,16",0
+netreqend db 13,10,13,10,0
+nethttptxt db "HTTP/",0
+netcltxt db "Content-Length:",0
+netcttxt db "Content-Type:",0
+nettettxt db "Transfer-Encoding:",0
+netmimetype db "application/x-symbos-dox",0
+netcfgerr db "Invalid GB-proxy address or temporary path.",0
+netdmnerr db "Network Daemon is not running.",0
+netdnserr db "GB-proxy host lookup failed.",0
+netconerr db "Could not connect to GB-proxy.",0
+netreqerr db "Could not send the proxy request.",0
+netbodyerr db "Could not receive or save the proxy response.",0
+netrsperr db "GB-proxy returned an invalid DOX response.",0
+
+; The Network Daemon SDK uses these conventional application symbols.
+DEFINE App_Process_ID prgprzn
+DEFINE App_Bank_Number prgbnknum
+DEFINE Message_Buffer prgmsgb
+
+READ "SymbOS_Lib-SystemManager.asm"
+READ "SymbOS_Lib-NetworkDaemon.asm"
+
 
 ;==============================================================================
 ;### DATA-AREA ################################################################
@@ -3993,7 +4880,7 @@ db #F3,#3F,#FF,#FF,#F1,#33,#33,#33,#FF,#FF,#FF,#3F,#F1,#1F,#FF,#FF,#33,#33,#33,#
 db #A3,#13,#13,#33,#11,#FF,#FF,#FF,#FF,#11,#F1,#1F,#A1,#33,#31,#FF,#F1,#33,#11,#FF,#13,#3F,#F1,#FF,#AA,#13,#33,#13,#33,#33,#33,#33,#33,#FF,#FF,#FF,#AA,#AF,#F3,#33,#31,#11,#13,#33,#3F,#FF,#FF,#FF
 db #AA,#AA,#AF,#F1,#FF,#FA,#AF,#33,#33,#FF,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#A3,#31,#1F,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#AF,#3F,#11,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#13,#3F,#FF,#FF
 
-;### PRGPRZS -> Stack für Programm-Prozess
+;### PRGPRZS -> Stack fur Programm-Prozess
         ds 128
 prgstk  ds 6*2
         dw prgprz
@@ -4051,13 +4938,16 @@ cfgnav  db 2    ;flag, if display navigation bar
 cfglnk  db 0    ;flag, if display quicklink bar
 cfgsta  db 2    ;flag, if display status bar
 
+; Appended for compatibility with existing appzilla.ini files.
+cfgproxy db "gb-proxy:5001",0:ds 64-14
+
 cfgend
 
 ;### MISC #####################################################################
 prgwintit   db "SymZilla":ds 32+11-8
 
 prgmsginf1  db "SymbOS SymZilla",0
-prgmsginf2  db " Version 0.2 (Build 070826pdt)",0
+prgmsginf2  db " Version 0.3 (Build 260816gbp)",0
 prgmsginf3  db " Copyright <c> 2007 SymbiosiS",0
 
 prgmsgerr1  db "SymZilla can't open this document,",0
@@ -4124,27 +5014,35 @@ prgmsgerra dw prgmsgerr0,4*1+2,prgmsgerr0,4*1+2
 
 ;### CONFIG WINDOW ############################################################
 
-configwin   dw #1401,4+16,059,039,200,063,0,0,200,063,200,063,200,063,0,configtit,0,0,configgrp,0,0:ds 136+14
+configwin   dw #1401,4+16,059,039,220,104,0,0,220,104,220,104,220,104,0,configtit,0,0,configgrp,0,0:ds 136+14
 configtit   db "Options",0
-configgrp   db 7,0:dw configdat,0,0,256*7+7,0,0,4
+configgrp   db 10,0:dw configdat,0,0,256*10+10,0,0,4
 configdat
 dw      00,         0,2,          0,0,1000,1000,0       ;00=Background
-dw      00,255*256+ 3,configdsc0, 00, 01,200,46,0       ;01=Frame "Startup"
+dw      00,255*256+ 3,configdsc0, 00, 01,220,46,0       ;01=Frame "Startup"
 dw      00,255*256+ 1,configdsc1, 08, 13, 54, 8,0       ;02=Description "Home page"
-dw      00,255*256+32,configinp1, 56, 11,136,12,0       ;03=Input "Home page"
-dw cfghom1,255*256+16,configtxt2, 30, 27, 80,12,0       ;04="Use Current Page" -Button
-dw cfghom2,255*256+16,configtxt3,112, 27, 80,12,0       ;05="Show Blank Page"-Button
-dw cfgset1,255*256+16,prgtxtok,   76, 48, 48,12,0       ;06="Ok"    -Button
+dw      00,255*256+32,configinp1, 56, 11,156,12,0       ;03=Input "Home page"
+dw cfghom1,255*256+16,configtxt2, 40, 27, 80,12,0       ;04="Use Current Page" -Button
+dw cfghom2,255*256+16,configtxt3,124, 27, 80,12,0       ;05="Show Blank Page"-Button
+dw      00,255*256+ 3,configdsc2, 00, 49,220,34,0       ;06=Frame "Network"
+dw      00,255*256+ 1,configdsc3, 08, 61, 54, 8,0       ;07=Description "GB proxy"
+dw      00,255*256+32,configinp2, 56, 59,156,12,0       ;08=Input "GB proxy"
+dw cfgset1,255*256+16,prgtxtok,   86, 86, 48,12,0       ;09="Ok"    -Button
 
 configdsc0  dw configtxt0,2+4
 configdsc1  dw configtxt1,2+4
+configdsc2  dw configtxt4,2+4
+configdsc3  dw configtxt5,2+4
 
 configinp1  dw cfghom,0,0,0,0,127,0
+configinp2  dw cfgproxy,0,0,0,0,63,0
 
 configtxt0  db "Startup",0
 configtxt1  db "Home Page:",0
 configtxt2  db "Use Current Page",0
 configtxt3  db "Show Blank Page",0
+configtxt4  db "Network",0
+configtxt5  db "GB proxy:",0
 
 ;### BOOKMARKS ################################################################
 

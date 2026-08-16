@@ -4,18 +4,45 @@
 <br>
 <b>INTRODUCTION TO SymZilla</b><br>
 <br>
-SymZilla is a simple web- browser that supports DOX files. DOX files are compiled documents that can contain text and images. SymZilla is still in beta and networks support / pure HTML are not supported at this time.<br>
+SymZilla is a simple browser for SymbOS. It displays DOX documents containing
+text, links and SGX graphics. Local DOX files continue to work as before.<br>
+<br>
+HTTP and HTTPS addresses are fetched through a configured GB-proxy. The proxy
+converts the remote page to DOX before SymZilla displays it, so SymZilla does
+not need to parse HTML or negotiate HTTPS itself.<br>
 <br>
 
 <h2>1100-Feature overview</h2>
 <br>
 <b>FEATURES</b><br>
 <br>
-You can open DOX files only at the moment. This is still a preview of SymZilla.<br>
+* Open local DOX documents.<br>
+* Open HTTP and HTTPS addresses through GB-proxy.<br>
+* Follow GET links in proxy-generated documents.<br>
+* Select SGX colour depth automatically from the active SymbOS screen mode.<br>
+<br>
+SymZilla advertises whether the current screen can display 2, 4 or 16 colours.
+GB-proxy then generates matching SGX graphics. This is based on the live
+screen mode, not just the computer type, so CPC and PCW colour limits are
+respected and an MSX in a 4-colour mode still receives 4-colour images.<br>
 <br>
 <h2>2000-Using SymZilla</h2>
 <br>
-<b>Using SymZilla as a DOX brower</b><br>
-As SymZilla is not Released we cannot offer any HELP file currently.<br>
+<b>USING LOCAL DOX FILES</b><br>
+Enter or select a local DOX pathname as usual. Local files do not require a
+network connection or GB-proxy.<br>
+<br>
+<b>USING GB-PROXY</b><br>
+Open Options and set the GB-proxy address to the host name or IP address and
+port of your proxy machine, for example gb-proxy:5001. The Network Daemon must
+be available in SymbOS and the proxy must be reachable from the machine.<br>
+<br>
+Enter an address beginning with http:// or https:// in the location field.
+SymZilla contacts GB-proxy over HTTP; for an HTTPS address, GB-proxy performs
+the secure upstream connection.<br>
+<br>
+Forms and POST requests are not supported yet. Links using the GET method are
+supported. Pages that cannot be converted by GB-proxy are displayed as DOX
+error documents when possible.<br>
 <br>
 <b>Please CHECK http://WWW.SYMBOS.ORG for updates!</b><br>
