@@ -2026,18 +2026,40 @@ netheadbad
         scf
         ret
 
-; ReceiveLine retains bytes following the blank line in its SDK buffer.  Try
-; that buffer before sleeping so multiple already-buffered header lines work.
+; ReceiveLine retains bytes following the blank line in its SDK buffer.  The
+; SDK requires known socket data before it may fetch more, so only call it
+; immediately when its private buffer already contains a complete line (or a
+; full 254-byte fragment).  A trailing CR still needs the following byte to
+; distinguish CRLF from a bare CR.
 netgetline
+        ld a,(SyNet_TCPRLN_Length)
+        or a
+        jr z,netgetwait
+        ld c,a
+        ld b,0
+        ld hl,SyNet_TCPRLN_Buffer
+        ld a,13
+        cpir
+        jr nz,netgetfull
+        ld a,b
+        or c
+        jr nz,netgetcall
+        jr netgetwait
+netgetfull
+        ld a,(SyNet_TCPRLN_Length)
+        cp 254
+        jr nc,netgetcall
+netgetwait
+        call netwaitdata
+        ret c
+netgetcall
         ld de,(prgbnknum)
         ld hl,netline
         ld a,(nethnd)
         call SyNet_TCPRLN
         ret c
         ret nz
-        call netwaitdata
-        jr nc,netgetline
-        ret
+        jr netgetline
 
 ; Wait for data while draining asynchronous events; TCPSTA covers data that
 ; was already queued before the event check.  Data+close is handled as data.
