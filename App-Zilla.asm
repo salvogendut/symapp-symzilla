@@ -1576,7 +1576,6 @@ netdox  call netabort
         ld hl,netreqerr
         jp c,netfail
         call netheaders
-        ld hl,netrsperr
         jp c,netfail
 		call netbody
 		ld hl,netbodyerr
@@ -1973,24 +1972,27 @@ netheaders
         ld (netlength+1),a
         ld (netlength+2),a
         call netgetline
+        ld hl,nethdrerr1
         ret c
 		ld a,d
 		cp 254
-		jr nc,netheadbad
+		jr nc,netheadlong
         call netstatus
+        ld hl,nethdrerr2
         ret c
 nethead1 call netgetline
+        ld hl,nethdrerr1
         ret c
         ld a,d
         or a
         jr z,nethead8
         cp 254
-        jr nc,netheadbad
+        jr nc,netheadlong
         ld hl,netheadnum
         inc (hl)
         ld a,(hl)
         cp 65
-        jr nc,netheadbad
+        jr nc,netheadmany
         ld hl,netline
         ld de,netcltxt
         call netprefix
@@ -2002,26 +2004,42 @@ nethead1 call netgetline
         ld hl,netline
         ld de,nettettxt
         call netprefix
-        jr z,netheadbad         ;chunked/other transfer codings unsupported
+        jr z,netheadte          ;chunked/other transfer codings unsupported
         jr nethead1
 netheadcl
         call netclprs
-        jr c,netheadbad
+        jr c,netheadclbad
         jr nethead1
 netheadct
         call netctprs
-        jr c,netheadbad
+        jr c,netheadctbad
         jr nethead1
 nethead8 ld a,(netheadflg)
-        cp 3
-        jr nz,netheadbad
+        bit 0,a
+        jr z,netheadclbad
+        bit 1,a
+        jr z,netheadctbad
         ld a,(netlength+0)      ;zero-length is never a valid DOX
         ld hl,(netlength+1)     ;bytes 1-2, used only for the zero test
         or l
         or h
-        jr z,netheadbad
+        jr z,netheadclbad
         or a
         ret
+netheadlong
+        ld hl,nethdrerr7
+        jr netheadbad
+netheadmany
+        ld hl,nethdrerr8
+        jr netheadbad
+netheadte
+        ld hl,nethdrerr5
+        jr netheadbad
+netheadclbad
+        ld hl,nethdrerr3
+        jr netheadbad
+netheadctbad
+        ld hl,nethdrerr4
 netheadbad
         scf
         ret
@@ -4579,7 +4597,13 @@ netdnserr db "GB-proxy host lookup failed.",0
 netconerr db "Could not connect to GB-proxy.",0
 netreqerr db "Could not send the proxy request.",0
 netbodyerr db "Could not receive or save the proxy response.",0
-netrsperr db "GB-proxy returned an invalid DOX response.",0
+nethdrerr1 db "DOX H1: header receive failed.",0
+nethdrerr2 db "DOX H2: invalid HTTP status.",0
+nethdrerr3 db "DOX H3: invalid Content-Length.",0
+nethdrerr4 db "DOX H4: invalid Content-Type.",0
+nethdrerr5 db "DOX H5: transfer encoding.",0
+nethdrerr7 db "DOX H7: header line is too long.",0
+nethdrerr8 db "DOX H8: too many headers.",0
 
 ; The Network Daemon SDK uses these conventional application symbols.
 DEFINE App_Process_ID prgprzn
