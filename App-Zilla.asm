@@ -1622,11 +1622,14 @@ netsockclo
         xor a
         ld (netsockflg),a
         ld a,(nethnd)
-        push af
-        call SyNet_TCPDIS
-        pop af
-        call SyNet_TCPCLO
-        ret
+        call SyNet_TCPSTA
+        ret c                   ;the daemon has already released the socket
+        ld a,l
+        and 127
+        cp 3
+        ld a,(nethnd)
+        jp c,SyNet_TCPDIS       ;locally terminate an opening/open socket
+        jp SyNet_TCPCLO         ;the peer has already closed it
 
 ;### NETMKPTH -> Creates a fully-qualified, per-process 8.3 temporary path.
 ; cfgfil is the stable executable-filename boundary.  The code-end pathname
@@ -1685,9 +1688,37 @@ nethex  add "0"
         ret
 
 ;### NETPRXPRS -> Parses cfgproxy without modifying the saved configuration.
-; Accepted initial form is hostname[:port], with port 5001 as the default.
+; Accept hostname[:port] or http://hostname[:port]; port 5001 is the default.
 netprxprs
         ld ix,cfgproxy
+        ld a,(ix+0)
+        and #df
+        cp "H"
+        jr nz,netprx0
+        ld a,(ix+1)
+        and #df
+        cp "T"
+        jr nz,netprx0
+        ld a,(ix+2)
+        and #df
+        cp "T"
+        jr nz,netprx0
+        ld a,(ix+3)
+        and #df
+        cp "P"
+        jr nz,netprx0
+        ld a,(ix+4)
+        cp ":"
+        jr nz,netprx0
+        ld a,(ix+5)
+        cp "/"
+        jr nz,netprx0
+        ld a,(ix+6)
+        cp "/"
+        jr nz,netprx0
+        ld de,7
+        add ix,de
+netprx0
         ld de,netprxhost
         ld b,63
         ld a,(ix+0)
@@ -1827,20 +1858,11 @@ netorg5 ld hl,netorigin
 netwaitcon
         call nettimeini
 netwcon1 call SyNet_NETEVT
-        jr c,netwcon3
-        ld e,a
         ld a,(nethnd)
-        cp e
-        jr nz,netwcon4
-        ld a,l
-        and 127
-        cp 2
-        jr z,netwconok
-        jr nc,netwconbad
-        jr netwcon4
-netwcon3 ld a,(nethnd)
         call SyNet_TCPSTA
         jr c,netwconbad
+        bit 7,l
+        jr nz,netwconok
         ld a,l
         and 127
         cp 2
@@ -2022,19 +2044,7 @@ netgetline
 netwaitdata
         call nettimeini
 netwait1 call SyNet_NETEVT
-        jr c,netwait3
-        ld e,a
         ld a,(nethnd)
-        cp e
-        jr nz,netwait5
-        bit 7,l
-        jr nz,netwaitok
-        ld a,l
-        and 127
-        cp 3
-        jr nc,netwaitbad
-        jr netwait5
-netwait3 ld a,(nethnd)
         call SyNet_TCPSTA
         jr c,netwaitbad
         bit 7,l
