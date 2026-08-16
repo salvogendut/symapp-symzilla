@@ -1962,10 +1962,12 @@ netsend2
 
 ;### NETHEADERS -> Parses a complete HTTP response header.
 ; Any final 2xx-5xx status is accepted, including proxy-generated error pages,
-; but only with the negotiated DOX MIME type and an exact, bounded length.
+; with an exact, bounded length.  Content-Type is advisory: loddox performs the
+; authoritative structural validation before the temporary file is rendered.
 netheaders
         xor a
-        ld (SyNet_TCPRLN_Length),a
+        ld (netbuflen+0),a
+        ld (netbuflen+1),a
         ld (netheadflg),a
         ld (netheadnum),a
         ld (netlength+0),a
@@ -2012,13 +2014,10 @@ netheadcl
         jr nethead1
 netheadct
         call netctprs
-        jr c,netheadctbad
         jr nethead1
 nethead8 ld a,(netheadflg)
         bit 0,a
         jr z,netheadclbad
-        bit 1,a
-        jr z,netheadctbad
         ld a,(netlength+0)      ;zero-length is never a valid DOX
         ld hl,(netlength+1)     ;bytes 1-2, used only for the zero test
         or l
@@ -2038,46 +2037,98 @@ netheadte
 netheadclbad
         ld hl,nethdrerr3
         jr netheadbad
-netheadctbad
-        ld hl,nethdrerr4
 netheadbad
         scf
         ret
 
-; ReceiveLine retains bytes following the blank line in its SDK buffer.  The
-; SDK requires known socket data before it may fetch more, so only call it
-; immediately when its private buffer already contains a complete line (or a
-; full 254-byte fragment).  A trailing CR still needs the following byte to
-; distinguish CRLF from a bare CR.
+; Read HTTP lines from an application-owned TCP buffer.  Keeping header and
+; body bytes in one buffer avoids relying on TCPRLN's hidden global state and
+; preserves any body bytes delivered in the same packet as the blank line.
 netgetline
-        ld a,(SyNet_TCPRLN_Length)
-        or a
-        jr z,netgetwait
+        ld hl,netline
+        ld (netlineptr),hl
+        xor a
+        ld (netlinelen),a
+netgetln1
+        call netgetbyte
+        ret c
+        cp 13
+        jr z,netgetcr
+        cp 10                   ;also tolerate a bare LF terminator
+        jr z,netgetdone
         ld c,a
-        ld b,0
-        ld hl,SyNet_TCPRLN_Buffer
-        ld a,13
-        cpir
-        jr nz,netgetfull
-        ld a,b
-        or c
-        jr nz,netgetcall
-        jr netgetwait
-netgetfull
-        ld a,(SyNet_TCPRLN_Length)
+        ld a,(netlinelen)
         cp 254
-        jr nc,netgetcall
-netgetwait
+        jr nc,netgetlong
+        inc a
+        ld (netlinelen),a
+        ld hl,(netlineptr)
+        ld (hl),c
+        inc hl
+        ld (netlineptr),hl
+        jr netgetln1
+netgetcr
+        call netgetbyte         ;HTTP uses CRLF; retain a non-LF lookahead
+        ret c
+        cp 10
+        jr z,netgetdone
+        call netungetbyte
+netgetdone
+        ld hl,(netlineptr)
+        ld (hl),0
+        ld a,(netlinelen)
+        ld d,a
+        or a
+        ret
+netgetlong
+        ld hl,(netlineptr)
+        ld (hl),0
+        ld d,254
+        or a
+        ret
+
+; Return one buffered byte in A.  TCPRCV may return fewer bytes than requested;
+; BC is therefore always recorded as the authoritative buffer length.
+netgetbyte
+        ld hl,(netbuflen)
+        ld a,h
+        or l
+        jr nz,netgethave
+netgetfill
         call netwaitdata
         ret c
-netgetcall
-        ld de,(prgbnknum)
-        ld hl,netline
+        ld bc,1024
         ld a,(nethnd)
-        call SyNet_TCPRLN
+        ld de,(prgbnknum)
+        ld hl,netrcvbuf
+        call SyNet_TCPRCV
         ret c
-        ret nz
-        jr netgetline
+        ld a,b
+        or c
+        jr z,netgetfill
+        ld (netbuflen),bc
+        ld hl,netrcvbuf
+        ld (netbufptr),hl
+netgethave
+        ld hl,(netbufptr)
+        ld a,(hl)
+        inc hl
+        ld (netbufptr),hl
+        ld hl,(netbuflen)
+        dec hl
+        ld (netbuflen),hl
+        or a
+        ret
+
+; Put the single lookahead byte back into the owned receive buffer.
+netungetbyte
+        ld hl,(netbufptr)
+        dec hl
+        ld (netbufptr),hl
+        ld hl,(netbuflen)
+        inc hl
+        ld (netbuflen),hl
+        ret
 
 ; Wait for data while draining asynchronous events; TCPSTA covers data that
 ; was already queued before the event check.  Data+close is handled as data.
@@ -2276,7 +2327,7 @@ netctbad
         ret
 
 ;### NETBODY -> Streams exactly Content-Length bytes into a temporary DOX.
-; Header parsing may have already buffered initial body bytes in TCPRLN.
+; Header parsing may have already buffered initial body bytes in netrcvbuf.
 netbody
 		call netfilnew
 		ret c
@@ -2284,16 +2335,15 @@ netbody
 		ld (netremain),hl
 		ld a,(netlength+2)
 		ld (netremain+2),a
-		ld a,(SyNet_TCPRLN_Length)
-		or a
+		ld bc,(netbuflen)
+		ld a,b
+		or c
 		jr z,netbody2
-		ld c,a
-		ld b,0
-		ld hl,SyNet_TCPRLN_Buffer
+		ld hl,(netbufptr)
 		call netwrite
 		ret c
-		xor a
-		ld (SyNet_TCPRLN_Length),a
+		ld hl,0
+		ld (netbuflen),hl
 netbody2
 		ld a,(netremain+2)
 		ld hl,(netremain)
@@ -4568,6 +4618,10 @@ netremain ds 3
 netwriteptr dw 0
 netwritelen dw 0
 netrcvbuf ds 1024
+netbufptr dw 0
+netbuflen dw 0
+netlineptr dw 0
+netlinelen db 0
 netheadflg db 0
 netheadnum db 0
 netlength ds 3
@@ -4600,7 +4654,6 @@ netbodyerr db "Could not receive or save the proxy response.",0
 nethdrerr1 db "DOX H1: header receive failed.",0
 nethdrerr2 db "DOX H2: invalid HTTP status.",0
 nethdrerr3 db "DOX H3: invalid Content-Length.",0
-nethdrerr4 db "DOX H4: invalid Content-Type.",0
 nethdrerr5 db "DOX H5: transfer encoding.",0
 nethdrerr7 db "DOX H7: header line is too long.",0
 nethdrerr8 db "DOX H8: too many headers.",0
