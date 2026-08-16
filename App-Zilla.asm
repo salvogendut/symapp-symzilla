@@ -1578,8 +1578,10 @@ netdox  call netabort
         call netheaders
         jp c,netfail
 		call netbody
-		ld hl,netbodyerr
-		jp c,netfail
+		jr nc,netdox8
+		call netbodyerrsel
+		jp netfail
+netdox8
 		call netsockclo
 		or a
 		ret
@@ -1845,7 +1847,15 @@ netorg3 ld a,(hl)
         inc hl
         djnz netorg3
         jr netorgbad
-netorg5 ld hl,netorigin
+; Absolute HTTP request targets require a path.  Normalize a bare origin here
+; so the proxy framework cannot turn it into an HTML trailing-slash redirect.
+netorg5 or a
+        jr nz,netorg5a
+        ld (hl),"/"
+        inc hl
+        ld (hl),a
+netorg5a
+        ld hl,netorigin
         or a
         sbc hl,de
         jr z,netorgbad
@@ -1853,15 +1863,15 @@ netorg5 ld hl,netorigin
         ld (de),a
         ret
 
-;### NETWAITCON -> Waits at most roughly 30 seconds for TCP establishment.
+nettimeout equ 6000            ;60s at 100 Hz; 120s on older 50 Hz kernels
+
+;### NETWAITCON -> Waits for TCP establishment up to the real-time deadline.
 netwaitcon
         call nettimeini
 netwcon1 call SyNet_NETEVT
         ld a,(nethnd)
         call SyNet_TCPSTA
         jr c,netwconbad
-        bit 7,l
-        jr nz,netwconok
         ld a,l
         and 127
         cp 2
@@ -1869,7 +1879,7 @@ netwcon1 call SyNet_NETEVT
         jr nc,netwconbad
 netwcon4 rst #30
         call nettick
-        jr nz,netwcon1
+        jr c,netwcon1
 netwconbad
         scf
         ret
@@ -1878,14 +1888,20 @@ netwconok
         ret
 
 nettimeini
-        ld hl,1500
-        ld (nettimer),hl
+        ld hl,jmp_mtgcnt        ;real-time system counter, independent of CPU speed
+        rst #28
+        ld (nettimer),ix
         ret
-nettick ld hl,(nettimer)
-        dec hl
-        ld (nettimer),hl
-        ld a,h
-        or l
+nettick ld hl,jmp_mtgcnt
+        rst #28
+        push ix
+        pop hl
+        ld de,(nettimer)
+        or a
+        sbc hl,de               ;elapsed ticks, modulo 65536
+        ld de,nettimeout
+        or a
+        sbc hl,de               ;CF=1 while the deadline is still pending
         ret
 
 ;### NETREQUEST -> Sends an HTTP/1.0 proxy request in bounded segments.
@@ -1956,35 +1972,43 @@ netsend1
 netsend2
         rst #30
         call nettick
-        jr nz,netsend1
+        jr c,netsend1
         scf
         ret
 
 ;### NETHEADERS -> Parses a complete HTTP response header.
 ; Any final 2xx-5xx status is accepted, including proxy-generated error pages,
-; with an exact, bounded length.  Content-Type is advisory: loddox performs the
-; authoritative structural validation before the temporary file is rendered.
+; but only with the negotiated DOX MIME type and an exact, bounded length.
 netheaders
         xor a
         ld (netbuflen+0),a
         ld (netbuflen+1),a
+        ld (netrxpending+0),a
+        ld (netrxpending+1),a
+        ld (netrxzero),a
         ld (netheadflg),a
         ld (netheadnum),a
         ld (netlength+0),a
         ld (netlength+1),a
         ld (netlength+2),a
         call netgetline
-        ld hl,nethdrerr1
-        ret c
+        jr nc,nethead0
+        call netheadrecv
+        scf
+        ret
+nethead0
 		ld a,d
-		cp 254
+        cp 254
 		jr nc,netheadlong
         call netstatus
         ld hl,nethdrerr2
         ret c
 nethead1 call netgetline
-        ld hl,nethdrerr1
-        ret c
+        jr nc,nethead2
+        call netheadrecv
+        scf
+        ret
+nethead2
         ld a,d
         or a
         jr z,nethead8
@@ -2014,10 +2038,13 @@ netheadcl
         jr nethead1
 netheadct
         call netctprs
+        jr c,netheadctbad
         jr nethead1
 nethead8 ld a,(netheadflg)
         bit 0,a
         jr z,netheadclbad
+        bit 1,a
+        jr z,netheadctbad
         ld a,(netlength+0)      ;zero-length is never a valid DOX
         ld hl,(netlength+1)     ;bytes 1-2, used only for the zero test
         or l
@@ -2037,8 +2064,25 @@ netheadte
 netheadclbad
         ld hl,nethdrerr3
         jr netheadbad
+netheadctbad
+        ld hl,nethdrerr4
 netheadbad
         scf
+        ret
+
+; Select a short diagnostic for the exact receive failure collapsed into H1.
+netheadrecv
+        ld a,(netwaitwhy)
+        cp 1
+        ld hl,nethdrerr1e
+        ret z
+        cp 3
+        ld hl,nethdrerr1t
+        ret z
+        cp 4
+        ld hl,nethdrerr1r
+        ret z
+        ld hl,nethdrerr1
         ret
 
 ; Read HTTP lines from an application-owned TCP buffer.  Keeping header and
@@ -2095,17 +2139,50 @@ netgetbyte
         or l
         jr nz,netgethave
 netgetfill
+        ld hl,(netrxpending)
+        ld a,h
+        or l
+        jr nz,netgetrecv
         call netwaitdata
         ret c
+netgetrecv
         ld bc,1024
         ld a,(nethnd)
         ld de,(prgbnknum)
         ld hl,netrcvbuf
+        push af
+        ld a,4
+        ld (netwaitwhy),a
+        pop af
         call SyNet_TCPRCV
         ret c
+        ld (netrxpending),hl
+        xor a
+        ld (netwaitwhy),a
         ld a,b
         or c
-        jr z,netgetfill
+        jr nz,netgetgot
+        ld hl,(netrxpending)
+        ld a,h
+        or l
+        jr z,netgetzero
+        ld a,(netrxzero)
+        or a
+        jr nz,netgetstale
+        inc a
+        ld (netrxzero),a
+        rst #30
+        jr netgetfill           ;one immediate retry for reported pending data
+netgetstale
+        ld hl,0                 ;stale pending count: return to event/status wait
+        ld (netrxpending),hl
+netgetzero
+        xor a
+        ld (netrxzero),a
+        jr netgetfill
+netgetgot
+        xor a
+        ld (netrxzero),a
         ld (netbuflen),bc
         ld hl,netrcvbuf
         ld (netbufptr),hl
@@ -2133,23 +2210,40 @@ netungetbyte
 ; Wait for data while draining asynchronous events; TCPSTA covers data that
 ; was already queued before the event check.  Data+close is handled as data.
 netwaitdata
+        xor a
+        ld (netwaitwhy),a
         call nettimeini
 netwait1 call SyNet_NETEVT
+        jr c,netwait2
+        ld e,a
+        ld a,(nethnd)
+        cp e
+        jr nz,netwait5          ;drain unrelated queued events in order
+        bit 7,l                 ;only a matching data event is actionable here
+        jr nz,netwaitok
+        jr netwait5             ;drain non-data events before polling status
+netwait2
         ld a,(nethnd)
         call SyNet_TCPSTA
-        jr c,netwaitbad
+        jr c,netwaitsta
         bit 7,l
         jr nz,netwaitok
         ld a,l
         and 127
         cp 3
-        jr nc,netwaitbad
+        jr nc,netwait5          ;provider may expose final bytes after close
 netwait5 rst #30
         call nettick
-        jr nz,netwait1
+        jr c,netwait1
+        ld a,3
+        ld (netwaitwhy),a
 netwaitbad
         scf
         ret
+netwaitsta
+        ld a,1
+        ld (netwaitwhy),a
+        jr netwaitbad
 netwaitok
         or a
         ret
@@ -2329,8 +2423,10 @@ netctbad
 ;### NETBODY -> Streams exactly Content-Length bytes into a temporary DOX.
 ; Header parsing may have already buffered initial body bytes in netrcvbuf.
 netbody
+		xor a
+		ld (netbodywhy),a
 		call netfilnew
-		ret c
+		jp c,netbodynewbad
 		ld hl,(netlength)
 		ld (netremain),hl
 		ld a,(netlength+2)
@@ -2341,7 +2437,7 @@ netbody
 		jr z,netbody2
 		ld hl,(netbufptr)
 		call netwrite
-		ret c
+		jp c,netbodywritebad
 		ld hl,0
 		ld (netbuflen),hl
 netbody2
@@ -2350,8 +2446,13 @@ netbody2
 		or h
 		or l
 		jr z,netbody8
+		ld hl,(netrxpending)
+		ld a,h
+		or l
+		jr nz,netbody2a
 		call netwaitdata
 		ret c
+netbody2a
 		ld bc,1024
 		ld a,(netremain+2)
 		or a
@@ -2363,20 +2464,82 @@ netbody2
 		ld b,h
 		ld c,l
 netbody3
+		ld a,3
+		ld (netbodywhy),a
 		ld a,(nethnd)
 		ld de,(prgbnknum)
 		ld hl,netrcvbuf
 		call SyNet_TCPRCV
 		ret c
+		ld (netrxpending),hl
+		xor a
+		ld (netbodywhy),a
 		ld a,b
 		or c
-		jr z,netbody2
+		jr nz,netbody4
+		ld hl,(netrxpending)
+		ld a,h
+		or l
+		jr z,netbodyzero
+		ld a,(netrxzero)
+		or a
+		jr nz,netbodystale
+		inc a
+		ld (netrxzero),a
+		rst #30
+		jr netbody2           ;one immediate retry for reported pending data
+netbodystale
+		ld hl,0
+		ld (netrxpending),hl
+netbodyzero
+		xor a
+		ld (netrxzero),a
+		jr netbody2
+netbody4
+		xor a
+		ld (netrxzero),a
 		ld hl,netrcvbuf
 		call netwrite
-		ret c
+		jr c,netbodywritebad
 		jr netbody2
 netbody8
 		call netfileclo
+		ret nc
+		ld a,4
+		jr netbodysetbad
+netbodynewbad
+		ld a,1
+		jr netbodysetbad
+netbodywritebad
+		ld a,2
+netbodysetbad
+		ld (netbodywhy),a
+		scf
+		ret
+
+; Select a diagnostic for a body-stream or temporary-file failure.
+netbodyerrsel
+		ld a,(netbodywhy)
+		cp 1
+		ld hl,netbodyerr1
+		ret z
+		cp 2
+		ld hl,netbodyerr2
+		ret z
+		cp 3
+		ld hl,netbodyerr3
+		ret z
+		cp 4
+		ld hl,netbodyerr4
+		ret z
+		ld a,(netwaitwhy)
+		cp 1
+		ld hl,netbodyerre
+		ret z
+		cp 3
+		ld hl,netbodyerrt
+		ret z
+		ld hl,netbodyerr
 		ret
 
 ; File handle zero is valid, so open/existence state is tracked separately.
@@ -4620,8 +4783,12 @@ netwritelen dw 0
 netrcvbuf ds 1024
 netbufptr dw 0
 netbuflen dw 0
+netrxpending dw 0
+netrxzero db 0
 netlineptr dw 0
 netlinelen db 0
+netwaitwhy db 0
+netbodywhy db 0
 netheadflg db 0
 netheadnum db 0
 netlength ds 3
@@ -4650,10 +4817,20 @@ netdmnerr db "Network Daemon is not running.",0
 netdnserr db "GB-proxy host lookup failed.",0
 netconerr db "Could not connect to GB-proxy.",0
 netreqerr db "Could not send the proxy request.",0
-netbodyerr db "Could not receive or save the proxy response.",0
+netbodyerr db "DOX B: body receive failed.",0
+netbodyerr1 db "DOX B1: temp file create failed.",0
+netbodyerr2 db "DOX B2: temp file write failed.",0
+netbodyerr3 db "DOX B3: TCP receive failed.",0
+netbodyerr4 db "DOX B4: temp file close failed.",0
+netbodyerre db "DOX BE: TCP status failed.",0
+netbodyerrt db "DOX BT: receive timeout.",0
 nethdrerr1 db "DOX H1: header receive failed.",0
+nethdrerr1e db "DOX H1E: TCP status failed.",0
+nethdrerr1t db "DOX H1T: receive timeout.",0
+nethdrerr1r db "DOX H1R: TCP receive failed.",0
 nethdrerr2 db "DOX H2: invalid HTTP status.",0
 nethdrerr3 db "DOX H3: invalid Content-Length.",0
+nethdrerr4 db "DOX H4: invalid Content-Type.",0
 nethdrerr5 db "DOX H5: transfer encoding.",0
 nethdrerr7 db "DOX H7: header line is too long.",0
 nethdrerr8 db "DOX H8: too many headers.",0

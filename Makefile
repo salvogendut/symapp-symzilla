@@ -52,10 +52,14 @@ check: all
 				'$$1 == symbol && $$2 == "EQU" { print $$3; found = 1; exit } \
 				 END { if (!found) exit 1 }' $(SYMBOLS); \
 		}; \
-		for symbol in netdox netabort nettmpdel nettmppth; do \
+		for symbol in netdox netabort nettmpdel nettmppth netgetbyte netrxpending nettimeini nettick; do \
 			value=$$(sym "$$symbol"); \
 			test "$$((value))" -ne 0 || { echo "unresolved network symbol: $$symbol" >&2; exit 1; }; \
 		done
+	@if grep -q '^SyNet_TCPRLN:' $(SYMBOLS); then \
+		echo "unexpected TCPRLN dependency in SymZilla" >&2; \
+		exit 1; \
+	fi
 	@grep -aqF 'Accept: application/x-symbos-dox' $(APP)
 	@grep -aqF 'X-GB-SGX: ' $(APP)
 	@grep -aqF 'Accept-Encoding: identity' $(APP)
