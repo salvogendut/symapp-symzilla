@@ -180,7 +180,11 @@ prgprz2 ld l,(iy+8)
         ld a,(iy+9)
         cp 1
         jr c,prgprz3
-        jp z,favjmp
+        jr nz,prgprz5
+        bit 7,l
+        jp nz,ctrclk            ;#0180 | CTRL ID is reserved for form controls
+        jp favjmp
+prgprz5
         ld h,a
         ld a,(iy+3)             ;A=click type (0/1/2=mouse left/right/double, 7=keyboard)
         jp (hl)
@@ -1381,40 +1385,354 @@ brwnew  ld de,(cfgfil)      ;copy application filename
 ;### Input      L=link number (1-254)
 brwlnknum   db 0    ;number of links
 
-brwlnk  ld a,(brwlnknum)
-        cp l
-        jp c,prgprz0            ;invalid link
-        db #dd:ld l,a
-        db #dd:ld h,0
-        add ix,ix               ;ix=length of link length table
+brwlnkid    db 0
+brwlnkoff   dw 0
+brwlnklen   dw 0
+
+;### BRWLNKGET -> Copies one bounded LINK record into brwlnkbuf
+;### Input L=1-based LINK ID; Output CF=0 and brwlnklen/brwlnkbuf valid
+brwlnkget
+        ld a,l
+        or a
+        jp z,brwlnkerr
+        inc a
+        jp z,brwlnkerr          ;255 is reserved
+        dec a
+        ld e,a
+        ld a,(brwlnknum)
+        cp e
+        jp c,brwlnkerr
         ld a,(5*0+prgmemtab+0)
-        ld de,(5*0+prgmemtab+1)
-        inc de                  ;de=first entry in link length table
-        add ix,de               ;ix=first link
-        ex de,hl
-brwlnk1 dec e
-        jr z,brwlnk2
+        or a
+        jp z,brwlnkerr
+        ld a,e
+        ld (brwlnkid),a
+        ld a,(brwlnknum)
+        ld l,a
+        ld h,0
+        add hl,hl
+        inc hl                  ;count byte plus length table
+        ld (brwlnkoff),hl
+        push hl
+        ld de,(5*0+prgmemtab+3)
+        or a
+        sbc hl,de
+        pop hl
+        jr c,brwlnkg0
+        jp nz,brwlnkerr
+brwlnkg0
+        ld hl,(5*0+prgmemtab+1)
+        inc hl
+brwlnkg1
+        ld a,(5*0+prgmemtab+0)
         rst #20:dw jmp_bnkrwd
-        add ix,bc
-        jr brwlnk1
-brwlnk2 ld c,a
+        ld a,b
+        or c
+        jp z,brwlnkerr
+        ld a,(brwlnkid)
+        dec a
+        ld (brwlnkid),a
+        jr z,brwlnkg2
+        push hl
+        ld hl,(brwlnkoff)
+        add hl,bc
+        jr nc,brwlnkg1a
+        pop hl
+        jp brwlnkerr
+brwlnkg1a
+        ld (brwlnkoff),hl
+        ld de,(5*0+prgmemtab+3)
+        or a
+        sbc hl,de
+        pop hl
+        jr c,brwlnkg1
+        jr z,brwlnkg1
+        jr brwlnkerr
+
+brwlnkg2
+        ld (brwlnklen),bc
+        ld a,b                  ;2..256 bytes fit in brwlnkbuf
+        or a
+        jr z,brwlnkg3
+        cp 1
+        jr nz,brwlnkerr
+        ld a,c
+        or a
+        jr nz,brwlnkerr
+        jr brwlnkg4
+brwlnkg3
+        ld a,c
+        cp 2
+        jr c,brwlnkerr
+brwlnkg4
+        ld hl,(brwlnkoff)
+        add hl,bc
+        jp c,brwlnkerr
+        push hl
+        ld de,(5*0+prgmemtab+3)
+        or a
+        sbc hl,de
+        pop hl
+        jr c,brwlnkg5
+        jr nz,brwlnkerr
+brwlnkg5
+        ld hl,(5*0+prgmemtab+1)
+        ld de,(brwlnkoff)
+        add hl,de
+        ld de,brwlnkbuf
+        ld bc,(brwlnklen)
         ld a,(prgbnknum)
         add a:add a:add a:add a
-        add c
-        push ix
-        pop hl
-        ld de,doxinf
-        push de
-        ld bc,256
+        ld d,a
+        ld a,(5*0+prgmemtab+0)
+        or d
+        ld de,brwlnkbuf
         rst #20:dw jmp_bnkcop
-        pop hl
-        ld a,(doxinf)           ;method byte: 0=GET, 1=POST
+        ld hl,brwlnkbuf+1      ;URL must terminate inside its declared record
+        ld bc,(brwlnklen)
+        dec bc
+brwlnkg6
+        ld a,(hl)
         or a
-        jp nz,prgprz0           ;forms/POST are not implemented yet
+        jr z,brwlnkg7
+        inc hl
+        dec bc
+        ld a,b
+        or c
+        jr nz,brwlnkg6
+        jr brwlnkerr
+brwlnkg7
+        or a
+        ret
+brwlnkerr
+        scf
+        ret
+
+brwlnk  call brwlnkget
+        jp c,prgprz0
+        ld hl,brwlnkbuf
+        ld a,(brwlnkbuf)        ;method byte: 0=GET, 1=POST
+        or a
+        jp nz,prgprz0           ;POST links are not supported yet
         inc hl                  ;skip the method byte before resolving the URL
         ld de,doxpth
         call diradd
         jp brwopn
+
+;### CTRCLK -> Handles a native form-control event
+;### Input L=#80 | 1-based control ID
+; Editing a type32 field only updates its Desktop-owned transfer data.  A
+; type16 button resolves its method-0 action LINK and serialises all named
+; type32 controls which share that action as an application/x-www-form-urlencoded
+; GET query.
+ctract      db 0
+ctrloop     db 0
+ctrurlptr   dw 0
+ctrurlrem   db 0
+ctrurlsep   db 0
+ctrencleft  db 0
+ctrurlbuf   ds 128
+
+ctrclk  ld a,l
+        and #7f
+        call ctrgetrec
+        jp c,prgprz0
+        ld a,(ctrrecbuf+1)
+        cp 16
+        jp nz,prgprz0           ;type32 modification event: state is already live
+        ld a,(ctrrecbuf+0)
+        ld (ctract),a
+        ld l,a
+        call brwlnkget
+        jp c,prgprz0
+        ld a,(brwlnkbuf)
+        or a
+        jp nz,prgprz0           ;first implementation is GET-only
+        ld hl,brwlnkbuf+1
+        ld de,ctrurlbuf
+        ld c,128
+ctrclkcpy
+        ld a,(hl)
+        ld (de),a
+        inc hl
+        inc de
+        or a
+        jr z,ctrclkcpy0
+        dec c
+        jp z,prgprz0            ;proxy action exceeds the navigation contract
+        jr ctrclkcpy
+ctrclkcpy0
+        call ctrurlini
+        jp c,ctrclkerr
+        ld a,1
+        ld (ctrloop),a
+ctrclk0
+        call ctrgetrec
+        jp c,ctrclkerr
+        ld a,(ctrrecbuf+1)
+        cp 32
+        jr nz,ctrclk4
+        ld a,(ctrrecbuf+0)
+        ld hl,ctract
+        cp (hl)
+        jr nz,ctrclk4
+        ld bc,(ctrrecbuf+4)
+        ld a,b
+        and c
+        inc a
+        jr z,ctrclk4            ;FFFF means an unnamed/non-submitted input
+        call ctrstrget
+        jp c,ctrclkerr
+        ld a,(ctrurlsep)
+        call ctrputc
+        jp c,ctrclkerr
+        call ctrencode
+        jp c,ctrclkerr
+        ld a,"="
+        call ctrputc
+        jp c,ctrclkerr
+        ld bc,(ctrrecbuf+6)
+        call ctrstrget
+        jp c,ctrclkerr
+        call ctrencode
+        jp c,ctrclkerr
+        ld a,"&"
+        ld (ctrurlsep),a
+ctrclk4 ld a,(ctrloop)
+        inc a
+        ld (ctrloop),a
+        ld hl,ctrnum
+        cp (hl)
+        jr c,ctrclk0
+        jr z,ctrclk0
+        ld hl,ctrurlbuf          ;commit only after the complete query is valid
+        ld de,doxpth
+        ld bc,128
+        ldir
+        jp brwopn
+
+ctrclkerr
+        jp prgprz0              ;scratch failure leaves the current path intact
+
+;### CTRURLINI -> Finds the append point and query separator in ctrurlbuf
+ctrurlini
+        ld hl,ctrurlbuf
+        ld c,127                 ;navigation history/address contract is 127 chars
+        ld b,"?"
+ctrurli0
+        ld a,(hl)
+        or a
+        jr z,ctrurli1
+        cp "?"
+        jr nz,ctrurli2
+        ld b,"&"
+ctrurli2
+        inc hl
+        dec c
+        jr nz,ctrurli0
+        scf
+        ret
+ctrurli1
+        ld (ctrurlptr),hl
+        ld a,c
+        ld (ctrurlrem),a
+        ld a,b
+        ld (ctrurlsep),a
+        or a
+        ret
+
+;### CTRPUTC -> Appends A while preserving room for the navigation URL's NUL
+ctrputc
+        push hl
+        push af
+        ld hl,ctrurlrem
+        ld a,(hl)
+        or a
+        jr z,ctrputerr
+        dec (hl)
+        pop af
+        ld hl,(ctrurlptr)
+        ld (hl),a
+        inc hl
+        ld (ctrurlptr),hl
+        ld (hl),0
+        pop hl
+        or a
+        ret
+ctrputerr
+        pop af
+        pop hl
+        scf
+        ret
+
+;### CTRENCODE -> Encodes a bounded banked string for a GET form
+;### Input HL=string bytes, BC=record capacity
+ctrencode
+        ld a,b
+        or a
+        jr nz,ctrencerr
+        ld a,c
+        ld (ctrencleft),a
+ctrenc0 ld a,(ctrencleft)
+        or a
+        jr z,ctrencerr          ;malformed runtime data lost its terminator
+        dec a
+        ld (ctrencleft),a
+        ld a,(5*1+prgmemtab+0)
+        rst #20:dw jmp_bnkrbt
+        ld a,b
+        or a
+        ret z
+        cp " "
+        jr nz,ctrenc1
+        ld a,"+"
+        jr ctrencput
+ctrenc1 cp "0"
+        jr c,ctrenc2
+        cp "9"+1
+        jr c,ctrencput
+ctrenc2 cp "A"
+        jr c,ctrenc3
+        cp "Z"+1
+        jr c,ctrencput
+ctrenc3 cp "a"
+        jr c,ctrenc4
+        cp "z"+1
+        jr c,ctrencput
+ctrenc4 cp "-"
+        jr z,ctrencput
+        cp "."
+        jr z,ctrencput
+        cp "_"
+        jr z,ctrencput
+        cp "~"
+        jr z,ctrencput
+        ld d,a
+        ld a,"%"
+        call ctrputc
+        jr c,ctrencerr
+        ld a,d
+        rrca:rrca:rrca:rrca
+        and 15
+        call ctrhex
+        call ctrputc
+        jr c,ctrencerr
+        ld a,d
+        and 15
+        call ctrhex
+ctrencput
+        call ctrputc
+        jr c,ctrencerr
+        jr ctrenc0
+ctrencerr
+        scf
+        ret
+
+ctrhex  add "0"
+        cp "9"+1
+        ret c
+        add 7
+        ret
 
 
 ;==============================================================================
@@ -2727,7 +3045,7 @@ loddoxnxt   ds 4    ;position of the next chunk inside the file
 
 lodtmpbuf   ds 11
 
-loddoxnum   equ 7   ;number of possible chunks
+loddoxnum   equ 8   ;number of possible chunks
 loddoxtab           ;chunk-table
 db "INFO":dw lodinf
 db "INDX":dw lodidx
@@ -2735,6 +3053,7 @@ db "HEAD":dw lodhed
 db "TEXT":dw lodtxt
 db "GRPH":dw lodgfx
 db "LINK":dw lodlnk
+db "CTRL":dw lodctl
 db "ENDF":dw 0
 loddoxflg   db 0    ;flag, if the necessary parts of the DOX have been loaded
 
@@ -2817,6 +3136,7 @@ loddox5 ld a,(loddoxflg)        ;end of file reached
         or a
         ld a,2
         jr z,loddox0
+        call ctractval           ;LINK may occur before or after CTRL in a DOX
         call loddox6
         xor a
         ret
@@ -3058,37 +3378,560 @@ lodlnk  ld a,d
         jp loddox1
 
 ;### LODCTL -> Loads the form-control part of a DOX document
-lodctl  ld bc,4
-        ld hl,lodtmpbuf
-        call loddox7
-        xor a
-;lodctl  ld bc,(lodtmpbuf+0)
-        ld e,2
-        push af
-        rst #20:dw jmp_memget
-        pop bc
-;        jr 
+; CTRL keeps its raw payload and one 15-byte Desktop text-input data record per
+; declared control in a single transfer-area allocation.  Keeping both parts in
+; one bank is required by SymbOS textinput_line.  Invalid/unsupported CTRL data
+; is ignored without rejecting the otherwise renderable document.
+ctrmax      equ 16
+ctrmemmax   equ 2048
+ctrextlen   equ 15
 
+ctrnum      db 0               ;number of validated CTRL records
+ctrrawlen   dw 0               ;raw CTRL payload length
+ctrctllen   dw 0               ;control-section length
+ctrstrlen   dw 0               ;string-section length
+ctrstrbeg   dw 0               ;first string record
+ctrstrend   dw 0               ;byte after the string section
+ctrextbeg   dw 0               ;first 15-byte runtime data record
+ctrrectab   ds ctrmax*4        ;per control: raw record address, record length
+ctrrecbuf   ds 9               ;largest supported raw record
+ctrreclen   dw 0
+ctrstrid    db 0
+ctrexttmp   ds ctrextlen
+
+lodctrrsz   dw 0
+lodctrcsz   dw 0
+lodctrssz   dw 0
+lodctrbase  dw 0
+lodctrlenp  dw 0
+lodctrrecp  dw 0
+lodctrend   dw 0
+lodctrvalp  dw 0
+lodctranz   db 0
+lodctridx   db 0
+
+lodctl  ld a,(5*1+prgmemtab+0)
+        or a
+        jp nz,loddox1           ;ignore duplicate CTRL chunks
         ld a,d
         or e
-        jp nz,loddox1           ;link chunck too long or corrupt
-        xor a
+        jp nz,loddox1           ;CTRL is limited to 16-bit length
+        ld h,b
+        ld l,c
+        ld de,5
+        or a
+        sbc hl,de
+        jp c,loddox1            ;header plus control count is mandatory
+        ld h,b
+        ld l,c
+        ld de,ctrmemmax
+        or a
+        sbc hl,de
+        jp nc,loddox1           ;raw length must be smaller than the total cap
+        ld (lodctrrsz),bc
+        ld bc,5
+        ld hl,lodtmpbuf
+        call loddox7            ;section lengths plus control count
+        jp nz,lodctlcor
+        ld a,(lodtmpbuf+4)
+        or a
+        jp z,loddox1
+        cp ctrmax+1
+        jp nc,loddox1
+        ld (lodctranz),a
+        ld hl,(lodtmpbuf+0)
+        ld (lodctrcsz),hl
+        ld de,(lodtmpbuf+2)
+        ld (lodctrssz),de
+        add hl,de
+        jp c,loddox1
+        ld de,4
+        add hl,de
+        jp c,loddox1
+        ld de,(lodctrrsz)
+        or a
+        sbc hl,de
+        jp nz,loddox1            ;the two sections must fill the payload
+        ld a,(lodctranz)
+        add a
+        inc a                    ;count byte plus 2-byte record-length table
         ld e,a
+        ld d,0
+        ld hl,(lodctrcsz)
+        or a
+        sbc hl,de
+        jp c,loddox1
+
+        ld a,(lodctranz)         ;allocation = raw payload + count*15
+        ld l,a
+        ld h,0
+        ld d,h
+        ld e,l
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        or a
+        sbc hl,de
+        ld de,(lodctrrsz)
+        add hl,de
+        ld a,h
+        cp ctrmemmax/256
+        jr c,lodctl0
+        jp nz,lodctlign
+        ld a,l
+        or a
+        jp nz,lodctlign          ;allow exactly 2048 bytes, never more
+lodctl0 ld c,l
+        ld b,h
+        xor a
+        ld e,2
         push bc
         rst #20:dw jmp_memget
         pop bc
-        jp c,loddox1            ;no memory for links -> just skip them
-        ld (5*0+prgmemtab+0),a
-        ld (5*0+prgmemtab+1),hl
-        ld (5*0+prgmemtab+3),bc
+        jp c,lodctlign           ;forms are optional when memory is tight
+        ld (5*1+prgmemtab+0),a
+        ld (5*1+prgmemtab+1),hl
+        ld (5*1+prgmemtab+3),bc
+        ld (lodctrbase),hl
+
+        add a:add a:add a:add a ;copy the five bytes already consumed
+        ld hl,prgbnknum
+        or (hl)
+        ld hl,lodtmpbuf
+        ld de,(lodctrbase)
+        ld bc,5
+        rst #20:dw jmp_bnkcop
+        ld hl,(lodctrbase)       ;load the rest directly into that bank
+        ld de,5
+        add hl,de
+        ld bc,(lodctrrsz)
+        dec bc:dec bc:dec bc:dec bc:dec bc
+        ld a,b
+        or c
+        jr z,lodctl1
+        ld a,(5*1+prgmemtab+0)
         ld e,a
-        call loddox8            ;load links
-        ld a,(5*0+prgmemtab+0)
-        ld hl,(5*0+prgmemtab+1)
+        call loddox8
+        jp nz,lodctlio
+
+lodctl1 ld hl,(lodctrbase)      ;cache validated section boundaries
+        ld de,4
+        add hl,de
+        ld de,(lodctrcsz)
+        add hl,de
+        ld (ctrstrbeg),hl
+        ld (lodctrend),hl
+        ld de,(lodctrssz)
+        add hl,de
+        ld (ctrstrend),hl
+        ld de,(lodctrbase)
+        or a
+        sbc hl,de
+        ld de,(lodctrrsz)
+        or a
+        sbc hl,de
+        jp nz,lodctlbad
+        ld hl,(lodctrbase)
+        ld de,(lodctrrsz)
+        add hl,de
+        ld (ctrextbeg),hl
+        ld hl,(lodctrrsz)
+        ld (ctrrawlen),hl
+        ld hl,(lodctrcsz)
+        ld (ctrctllen),hl
+        ld hl,(lodctrssz)
+        ld (ctrstrlen),hl
+
+        ld hl,(lodctrbase)      ;build a bounded record address/length cache
+        ld de,5
+        add hl,de
+        ld (lodctrlenp),hl
+        ld a,(lodctranz)
+        add a
+        ld e,a
+        ld d,0
+        add hl,de
+        ld (lodctrrecp),hl
+        ld ix,ctrrectab
+        ld a,(lodctranz)
+        ld (lodctridx),a
+lodctl2 ld hl,(lodctrlenp)
+        ld a,(5*1+prgmemtab+0)
+        rst #20:dw jmp_bnkrwd
+        ld (lodctrlenp),hl
+        ld a,b
+        or c
+        jp z,lodctlbad
+        ld hl,(lodctrrecp)
+        ld (ix+0),l
+        ld (ix+1),h
+        ld (ix+2),c
+        ld (ix+3),b
+        add hl,bc
+        jp c,lodctlbad
+        ld (lodctrrecp),hl
+        ld de,(lodctrend)
+        or a
+        sbc hl,de
+        jp nc,lodctl3
+        jr lodctl4
+lodctl3 jp nz,lodctlbad         ;record ran beyond the control section
+lodctl4 ld de,4
+        add ix,de
+        ld hl,lodctridx
+        dec (hl)
+        jr nz,lodctl2
+        ld hl,(lodctrrecp)
+        ld de,(lodctrend)
+        or a
+        sbc hl,de
+        jp nz,lodctlbad
+
+        ld hl,(ctrstrbeg)       ;validate the complete string-record chain
+lodctl5 push hl
+        ld de,2
+        add hl,de
+        ld de,(ctrstrend)
+        or a
+        sbc hl,de
+        pop hl
+        jp c,lodctl6
+        jp nz,lodctlbad
+lodctl6 ld a,(5*1+prgmemtab+0)
+        rst #20:dw jmp_bnkrwd
+        ld a,b
+        or c
+        jr nz,lodctl7
+        ld de,(ctrstrend)
+        or a
+        sbc hl,de
+        jp nz,lodctlbad         ;zero terminator must end the section
+        jr lodctl9
+lodctl7 push hl
+        ld h,b
+        ld l,c
+        ld de,3
+        or a
+        sbc hl,de
+        pop hl
+        jp c,lodctlbad
+        dec bc
+        dec bc
+        add hl,bc
+        jp c,lodctlbad
+        push hl
+        ld de,(ctrstrend)
+        or a
+        sbc hl,de
+        pop hl
+        jr c,lodctl8
+        jp nz,lodctlbad         ;string record ran beyond its section
+lodctl8
+        dec hl
+        ld a,(5*1+prgmemtab+0)
         rst #20:dw jmp_bnkrbt
         ld a,b
-        ld (brwlnknum),a
+        or a
+        jp nz,lodctlbad         ;each record must end in a NUL
+        jr lodctl5
+
+lodctl9 ld a,(lodctranz)       ;validate supported records and initialise TXL
+        ld (ctrnum),a
+        ld (lodctridx),a
+        ld a,1
+lodctla push af
+        call ctrgetrec
+        jp c,lodctlbadp
+        ld a,(ctrreclen+1)
+        or a
+        jp nz,lodctlbadp
+        ld a,(ctrreclen)
+        cp 8
+        jp c,lodctlbadp
+        ld a,(ctrrecbuf+1)
+        cp 16
+        jr z,lodctlb
+        cp 32
+        jr z,lodctlc
+lodctln pop af                 ;unknown legacy types stay safely non-rendered
+        inc a
+        ld hl,lodctridx
+        dec (hl)
+        jr nz,lodctla
         jp loddox1
+
+lodctlb ld a,(ctrreclen)       ;button_simple: exact legacy 8-byte record
+        cp 8
+        jp nz,lodctlbadp
+        ld a,(ctrrecbuf+0)
+        inc a
+        jp z,lodctlbadp
+        dec a
+        jp z,lodctlbadp
+        ld a,(ctrrecbuf+2)
+        or a
+        jp z,lodctlbadp
+        ld a,(ctrrecbuf+3)
+        cp 12
+        jp nz,lodctlbadp
+        ld bc,(ctrrecbuf+6)
+        call ctrstrget
+        jp c,lodctlbadp
+        call ctrstrscan
+        jp c,lodctlbadp
+        jr lodctln
+
+lodctlc ld a,(ctrreclen)       ;textinput_line: 8 common bytes + max length
+        cp 9
+        jp nz,lodctlbadp
+        ld a,(ctrrecbuf+0)
+        inc a
+        jp z,lodctlbadp
+        dec a
+        jp z,lodctlbadp
+        ld a,(ctrrecbuf+2)
+        or a
+        jp z,lodctlbadp
+        ld a,(ctrrecbuf+3)
+        cp 12
+        jp nz,lodctlbadp
+        ld a,(ctrrecbuf+8)
+        or a
+        jp z,lodctlbadp
+        cp 64
+        jp nc,lodctlbadp
+        ld bc,(ctrrecbuf+4)     ;field name must be a bounded NUL string
+        call ctrstrget
+        jp c,lodctlbadp
+        call ctrstrscan
+        jp c,lodctlbadp
+        ld bc,(ctrrecbuf+6)     ;value record doubles as mutable input buffer
+        call ctrstrget
+        jp c,lodctlbadp
+        ld (lodctrvalp),hl
+        ld a,b
+        or a
+        jp nz,lodctlbadp
+        ld a,(ctrrecbuf+8)
+        inc a
+        cp c
+        jp nz,lodctlbadp        ;buffer is exactly max_length+1 bytes
+        call ctrstrscan
+        jp c,lodctlbadp
+        ld a,(ctrrecbuf+8)
+        cp e
+        jp c,lodctlbadp
+        push de
+        ld hl,ctrexttmp
+        ld b,ctrextlen
+        xor a
+lodctld ld (hl),a
+        inc hl
+        djnz lodctld
+        ld hl,(lodctrvalp)
+        ld (ctrexttmp+0),hl
+        pop de
+        xor a
+        ld d,a
+        ld (ctrexttmp+4),de     ;cursor starts after the initial value
+        ld (ctrexttmp+8),de
+        ld a,(ctrrecbuf+8)
+        ld (ctrexttmp+10),a
+        pop af
+        push af
+        call ctrextadr
+        ex de,hl
+        ld a,(5*1+prgmemtab+0)
+        add a:add a:add a:add a
+        ld hl,prgbnknum
+        or (hl)
+        ld hl,ctrexttmp
+        ld bc,ctrextlen
+        rst #20:dw jmp_bnkcop
+        jp lodctln
+
+lodctlbadp pop af
+lodctlbad
+        xor a
+        ld (ctrnum),a
+        ld (ctrrawlen),a
+        ld (ctrrawlen+1),a
+        ld ix,5*1+prgmemtab
+        call lodclr2
+lodctlign
+        jp loddox1
+lodctlcor
+        ld a,2
+        or a
+        jp loddox0
+lodctlio
+        ld a,2
+        or a
+        jp loddox0
+
+;### CTRGETREC -> Copies one cached raw control record into ctrrecbuf
+;### Input A=1-based control ID; Output CF=0 and ctrreclen/ctrrecbuf valid
+ctrgetrec
+        or a
+        jr z,ctrgeterr
+        ld e,a
+        ld a,(ctrnum)
+        cp e
+        jr c,ctrgeterr
+        ld a,e
+        dec a
+        add a:add a
+        ld e,a
+        ld d,0
+        ld hl,ctrrectab
+        add hl,de
+        push hl
+        pop ix
+        ld l,(ix+0)
+        ld h,(ix+1)
+        ld c,(ix+2)
+        ld b,(ix+3)
+        ld (ctrreclen),bc
+        ld a,b
+        or a
+        jr nz,ctrget9
+        ld a,c
+        cp 9
+        jr c,ctrget8
+ctrget9 ld bc,9
+        jr ctrget0
+ctrget8 ld b,0
+        ld a,c
+        or a
+        jr z,ctrgeterr
+ctrget0 push bc
+        ld de,ctrrecbuf
+        xor a
+        ld (ctrrecbuf+8),a
+        ld a,(prgbnknum)
+        add a:add a:add a:add a
+        ld d,a
+        ld a,(5*1+prgmemtab+0)
+        or d
+        pop bc
+        ld de,ctrrecbuf
+        rst #20:dw jmp_bnkcop
+        or a
+        ret
+ctrgeterr
+        scf
+        ret
+
+;### CTRSTRGET -> Resolves a 1-based string ID
+;### Input BC=string ID; Output HL=string bytes, BC=capacity, CF=0
+ctrstrget
+        ld a,b
+        or a
+        jr nz,ctrstrerr
+        ld a,c
+        or a
+        jr z,ctrstrerr
+        ld (ctrstrid),a
+        ld hl,(ctrstrbeg)
+ctrstrg0 ld a,(5*1+prgmemtab+0)
+        rst #20:dw jmp_bnkrwd
+        ld a,b
+        or c
+        jr z,ctrstrerr
+        ld a,(ctrstrid)
+        dec a
+        ld (ctrstrid),a
+        jr z,ctrstrg1
+        dec bc
+        dec bc
+        add hl,bc
+        jr ctrstrg0
+ctrstrg1 dec bc
+        dec bc
+        or a
+        ret
+ctrstrerr
+        scf
+        ret
+
+;### CTRSTRSCAN -> Finds NUL without walking beyond the resolved record
+;### Input HL=string bytes, BC=capacity; Output E=string length, CF=0
+ctrstrscan
+        ld a,b
+        or a
+        jr nz,ctrstrerr
+        ld d,c
+        ld e,0
+ctrstrs0 ld a,d
+        or a
+        jr z,ctrstrerr
+        ld a,(5*1+prgmemtab+0)
+        rst #20:dw jmp_bnkrbt
+        ld a,b
+        or a
+        ret z
+        inc e
+        dec d
+        jr ctrstrs0
+
+;### CTREXTADR -> Returns the runtime data-record address for control A
+ctrextadr
+        dec a
+        ld l,a
+        ld h,0
+        ld d,h
+        ld e,l
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        or a
+        sbc hl,de
+        ld de,(ctrextbeg)
+        add hl,de
+        ret
+
+;### CTRACTVAL -> Drops CTRL if a supported control names a missing LINK
+; This runs after the complete chunk loop, as LINK and CTRL ordering is free.
+ctractval
+        ld a,(ctrnum)
+        or a
+        ret z
+        ld e,a
+        ld a,1
+ctractv0
+        push af
+        push de
+        call ctrgetrec
+        pop de
+        jr c,ctractbad
+        ld a,(ctrrecbuf+1)
+        cp 16
+        jr z,ctractv1
+        cp 32
+        jr nz,ctractv2
+ctractv1
+        ld a,(ctrrecbuf+0)
+        ld c,a
+        ld a,(brwlnknum)
+        cp c
+        jr c,ctractbad
+ctractv2
+        pop af
+        inc a
+        dec e
+        jr nz,ctractv0
+        ret
+ctractbad
+        pop af
+ctrdiscard
+        xor a
+        ld (ctrnum),a
+        ld (ctrrawlen),a
+        ld (ctrrawlen+1),a
+        ld ix,5*1+prgmemtab
+        jp lodclr2
 
 ;### LODCLR -> Removes the current DOX document, if existing
 lodclr  ld hl,200                   ;** reset document parameters
@@ -3100,6 +3943,9 @@ lodclr  ld hl,200                   ;** reset document parameters
         ld hl,0
         ld (prgsupobj+6),hl
         ld (prgsupobj+8),hl
+        xor a
+        ld (prgsupgrp+8),a
+        ld (prgsupgrp+14),a
         ld hl,256*255
         ld (renviwtxt),hl
         ;status done
@@ -3118,14 +3964,19 @@ lodclr0 ld (ix+0),l
         ld hl,gfxanz                ;** release graphic memory
         ld b,(hl)
         xor a
-        cp b
-        ret z
         ld (hl),a
         ld ix,gfxtab
+        cp b
+        jr z,lodclr4
 lodclr1 push bc
         call lodclr2
         pop bc
         djnz lodclr1
+lodclr4 xor a
+        ld (brwlnknum),a
+        ld (ctrnum),a
+        ld (ctrrawlen),a
+        ld (ctrrawlen+1),a
         ld ix,5*0+prgmemtab         ;** release link and form-control memory
         call lodclr2
         call lodclr2
@@ -3153,6 +4004,9 @@ lodclr3 ld bc,5
 
 rentst  ld a,(renwinbgr)
         ld (prgsupdat+4),a
+        xor a
+        ld (prgsupgrp+8),a      ;rebuilt from the first rendered submit button
+        ld (prgsupgrp+14),a     ;rebuilt from the first rendered text input
         ld hl,(renwinspc)
         ld h,0
         push hl
@@ -4116,8 +4970,85 @@ renctlo inc l
         ld c,l
         ld b,h
         jp renlin1
-renctlz ;...                ;x,>=7 not defined
+renctlz cp 7                ;-- 10,7=insert a CTRL form object
+        jp nz,renlin1
+        bit 7,(ix-3)
+        jp z,renlin1
+        ld a,(ix-4)
+        ld (renctrid),a
+        push iy
+        push bc
+        push ix
+        call ctrgetrec
+        pop ix
+        jr c,renctr0
+        ld a,(ctrrecbuf+1)
+        cp 16
+        jr z,renctr1
+        cp 32
+        jr nz,renctr0
+renctr1 ld (renctrtyp),a
+        ld a,(ctrrecbuf+2)
+        ld e,a
+        ld a,(ctrrecbuf+3)
+        ld d,a
+        pop bc
+        call reniln
+        jr nc,renctr2
+        pop iy
+        jp renlin4
+renctr0 pop bc
+        pop iy
         jp renlin1
+
+renctr2 ld a,(renctrid)     ;RENILN prepared position and size
+        or #80
+        ld (iy+0),a
+        ld (iy+1),1
+        ld a,(renctrtyp)
+        ld (iy+2),a
+        ld a,(5*1+prgmemtab+0)
+        ld (iy+3),a
+        push bc
+        ld a,(renctrtyp)
+        cp 32
+        jr z,renctr3
+        ld bc,(ctrrecbuf+6) ;button parameter is its label string
+        call ctrstrget
+        jr c,renctr6
+        jr renctr4
+renctr3 ld a,(renctrid)     ;text input parameter is its 15-byte data record
+        call ctrextadr
+renctr4 ld (iy+4),l
+        ld (iy+5),h
+
+        push iy             ;calculate the new object's collection index
+        pop hl
+        ld de,renviwobj
+        or a
+        sbc hl,de
+        srl h:rr l
+        srl h:rr l
+        srl h:rr l
+        srl h:rr l
+        inc l                ;group record 0 is prgsupdat, before renviwobj
+        ld a,(renctrtyp)
+        cp 32
+        ld a,l
+        ld hl,prgsupgrp+8
+        jr nz,renctr5
+        ld hl,prgsupgrp+14
+renctr5 ld c,a
+        ld a,(hl)
+        or a
+        jr nz,renctr6
+        ld (hl),c            ;first input gets focus; first button is collection default
+renctr6 pop bc
+        pop iy
+        jp renlin1
+
+renctrid db 0
+renctrtyp db 0
 
 db "debug here"
 
@@ -5319,7 +6250,8 @@ prgwinmen6tx2 db "About SymZilla...",0
 
 doxmsk  db "DOX",0
 doxpth  ds 256
-doxinf  ds 256          ;dox info header (also temporarily used for new links!)
+doxinf  ds 256          ;current DOX info header
+brwlnkbuf ds 256        ;validated LINK record scratch (method byte plus URL)
 doxemp  db "[empty]",0
 
 ;### INFO-FENSTER #############################################################
