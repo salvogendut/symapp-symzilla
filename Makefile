@@ -24,6 +24,17 @@ check: all
 	@test "$$(od -An -t x1 -j 88 -N 2 $(APP) | tr -d ' \n')" = "0003"
 	@test "$$(dd if=$(FIXTURE) bs=1 count=4 2>/dev/null)" = "INFO"
 	@set -eu; \
+		set -- $$(od -An -t u2 -N 10 $(APP)); \
+		static_size=$$(($$1 + $$2 + $$3)); \
+		header_count=$$5; \
+		table_bytes=$$(($$(stat -c %s $(APP)) - static_size)); \
+		test $$((table_bytes % 2)) -eq 0; \
+		actual_count=$$((table_bytes / 2)); \
+		test "$$header_count" -eq "$$actual_count" || { \
+			echo "relocation count mismatch: header=$$header_count table=$$actual_count" >&2; \
+			exit 1; \
+		}
+	@set -eu; \
 		sym() { \
 			awk -v symbol="$$1:" \
 				'$$1 == symbol && $$2 == "EQU" { print $$3; found = 1; exit } \

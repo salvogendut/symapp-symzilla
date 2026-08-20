@@ -263,7 +263,7 @@ prgpar2 ld (hl),0
 ;### Output     A=type (0=unknown, 1=file, 2=HTTP, 16=about blank, 17=about symzilla)
 dirloci db "HTTP://???????",2
         db "HTTPS://??????",2
-        db "?:\???????????",1
+        db "?:",#5c,"???????????",1
         db "?:/???????????",1
         db "ABOUT:BLANK",0,"??",16
         db "ABOUT:",0,"???????",17
@@ -1869,6 +1869,17 @@ nettimeout equ 6000            ;60s at 100 Hz; 120s on older 50 Hz kernels
 netwaitcon
         call nettimeini
 netwcon1 call SyNet_NETEVT
+        ; A queued established event can arrive before TCPSTA settles.
+        jr c,netwcon2
+        ld e,a
+        ld a,(nethnd)
+        cp e
+        jr nz,netwcon2
+        ld a,l
+        and 127
+        cp 2
+        jr z,netwconok
+netwcon2
         ld a,(nethnd)
         call SyNet_TCPSTA
         jr c,netwconbad
@@ -1876,7 +1887,9 @@ netwcon1 call SyNet_NETEVT
         and 127
         cp 2
         jr z,netwconok
-        jr nc,netwconbad
+        ; UNAPI may expose states 3/4 transiently during nonblocking connect.
+        ; Treat them as provisional until the real-time deadline expires.
+        jr nc,netwcon4
 netwcon4 rst #30
         call nettick
         jr c,netwcon1
@@ -4840,8 +4853,8 @@ DEFINE App_Process_ID prgprzn
 DEFINE App_Bank_Number prgbnknum
 DEFINE Message_Buffer prgmsgb
 
-READ "SymbOS_Lib-SystemManager.asm"
 READ "SymbOS_Lib-NetworkDaemon.asm"
+READ "SymbOS_Lib-SystemManager.asm"
 
 
 ;==============================================================================
