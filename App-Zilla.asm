@@ -3196,7 +3196,7 @@ rentst2 ld (prgsupobj+8),hl
 renviwmax   equ 240
 renviwdat   dw 0
 
-renfntadr   dw -1,fntita,fntbld,fntbig,#2ff
+renfntadr   dw -1,fntita,fntbld,fntbig,-1
 renfntwid   ds 5*128    ;charwidth lookup table, byte127=height
 
 renfrmfnt   db 0,0      ;0=normal, 1=italic, 2=bold, 3=big
@@ -3231,13 +3231,25 @@ renini  ld hl,renviwobj
         ld bc,renviwmax*16
         add hl,bc
         ld (renviwdat),hl
-        ld e,8                  ;*** generate charwidth lookup tables
-        ld hl,jmp_sysinf
-        rst #28             ;DE=font adr
-        xor a
-        ex de,hl
-        ld ix,renfntwid
-        call renini1
+        ld ix,renfntwid         ;*** generate system-font width lookup table
+        ld bc,98*256+32
+renini0 ld a,c
+        ld (renviwtxt),a
+        push bc
+        push ix
+        ld hl,renviwtxt
+        ld a,(prgbnknum)
+        ld iy,1
+        rst #20:dw jmp_txtlen
+        pop ix
+        pop bc
+        ld (ix+0),e
+        inc ix
+        inc c
+        djnz renini0
+        ld (renfntwid+127),a
+        ld de,128-98
+        add ix,de
         ld hl,0*128+renfntwid
         ld de,4*128+renfntwid
         ld bc,128
@@ -3788,7 +3800,15 @@ renliny db 0                ;ysize of line
 renlins db 0                ;number of spaces in this line
 renlint ds 256*2            ;addresse of spaces
 
-renlin  xor a               ;init values
+renlin  ld a,(ix+0)         ;consume a leading colour control locally
+        dec a               ;(SymbOS 4.1 reserves leading 1 for text pointers)
+        jr nz,renlin0
+        ld a,(ix+1)
+        ld (renfrmcol),a
+        inc ix
+        inc ix
+        jr renlin
+renlin0 xor a               ;init values
         ld (renliny),a
         ld (renlins),a
         ld (renilnnum),a
