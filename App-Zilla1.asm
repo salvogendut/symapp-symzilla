@@ -14,3 +14,7 @@ READ "App-Zilla.asm"
 write "build/test3.dox"
 org #0000
 READ "Dox-Test3.asm"
+
+write "build/form-test.dox"
+org #0000
+READ "Dox-Form.asm"
