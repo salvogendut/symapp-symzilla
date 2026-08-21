@@ -2,13 +2,13 @@
 ;@                                                                            @
 ;@                   S y m Z i l l a    (Internet Browser)                    @
 ;@                                                                            @
-;@             (c) 2007-2010 by Prodatron / SymbiosiS (Jorn Mika)             @
+;@             (c) 2007-2010 by Prodatron / SymbiosiS (Jörn Mika)             @
 ;@                                                                            @
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 ;todo
 ;- status bar korrekt an/aus
-;+ DOX-aendern -> spalten-infos durfen keine 0en enthalten (z.b. unterstes und oberstes bit setzen und bitshift durchfuhren; multiplyer +1)
+;+ DOX-aendern -> spalten-infos dürfen keine 0en enthalten (z.b. unterstes und oberstes bit setzen und bitshift durchführen; multiplyer +1)
 ;+ xml2dox
 ;+ inline objects
 ;- caching/scroll in big dox files
@@ -59,41 +59,41 @@ relocate_start
 
 ;### PROGRAMM-KOPF ############################################################
 
-prgdatcod       equ 0           ;Lange Code-Teil (Pos+Len beliebig; inklusive Kopf!)
-prgdatdat       equ 2           ;Lange Daten-Teil (innerhalb 16K Block)
-prgdattra       equ 4           ;Lange Transfer-Teil (ab #C000)
+prgdatcod       equ 0           ;Länge Code-Teil (Pos+Len beliebig; inklusive Kopf!)
+prgdatdat       equ 2           ;Länge Daten-Teil (innerhalb 16K Block)
+prgdattra       equ 4           ;Länge Transfer-Teil (ab #C000)
 prgdatorg       equ 6           ;Original-Origin
-prgdatrel       equ 8           ;Anzahl Eintrage Relocator-Tabelle
-prgdatstk       equ 10          ;Lange Stack (Transfer-Teil beginnt immer mit Stack)
+prgdatrel       equ 8           ;Anzahl Einträge Relocator-Tabelle
+prgdatstk       equ 10          ;Länge Stack (Transfer-Teil beginnt immer mit Stack)
 prgdatrs1       equ 12          ;*reserved* (3 bytes)
 prgdatnam       equ 15          ;program name (24+1[0] chars)
 prgdatflg       equ 40          ;flags (+1=16colour icon available)
 prgdat16i       equ 41          ;file offset of 16colour icon
 prgdatrs2       equ 43          ;*reserved* (5 bytes)
 prgdatidn       equ 48          ;"SymExe10"
-prgdatcex       equ 56          ;zusatzlicher Speicher fur Code-Bereich
-prgdatdex       equ 58          ;zusatzlicher Speicher fur Data-Bereich
-prgdattex       equ 60          ;zusatzlicher Speicher fur Transfer-Bereich
+prgdatcex       equ 56          ;zusätzlicher Speicher für Code-Bereich
+prgdatdex       equ 58          ;zusätzlicher Speicher für Data-Bereich
+prgdattex       equ 60          ;zusätzlicher Speicher für Transfer-Bereich
 prgdatres       equ 62          ;*reserviert* (26 bytes)
 prgdatver       equ 88          ;required OS version (1.0)
 prgdatism       equ 90          ;Icon (klein)
 prgdatibg       equ 109         ;Icon (gross)
-prgdatlen       equ 256         ;Datensatzlange
+prgdatlen       equ 256         ;Datensatzlänge
 
 prgpstdat       equ 6           ;Adresse Daten-Teil
 prgpsttra       equ 8           ;Adresse Transfer-Teil
-prgpstspz       equ 10          ;zusatzliche Prozessnummern (4*1)
+prgpstspz       equ 10          ;zusätzliche Prozessnummern (4*1)
 prgpstbnk       equ 14          ;Bank (1-8)
-prgpstmem       equ 48          ;zusatzliche Memory-Bereiche (8*5)
+prgpstmem       equ 48          ;zusätzliche Memory-Bereiche (8*5)
 prgpstnum       equ 88          ;Programm-Nummer
 prgpstprz       equ 89          ;Prozess-Nummer
 
-prgcodbeg   dw prgdatbeg-prgcodbeg  ;Lange Code-Teil
-            dw prgtrnbeg-prgdatbeg  ;Lange Daten-Teil
-            dw prgtrnend-prgtrnbeg  ;Lange Transfer-Teil
+prgcodbeg   dw prgdatbeg-prgcodbeg  ;Länge Code-Teil
+            dw prgtrnbeg-prgdatbeg  ;Länge Daten-Teil
+            dw prgtrnend-prgtrnbeg  ;Länge Transfer-Teil
 prgdatadr   dw #1000                ;Original-Origin                    POST Adresse Daten-Teil
-prgtrnadr   dw relocate_count       ;Anzahl Eintrage Relocator-Tabelle  POST Adresse Transfer-Teil
-prgprztab   dw prgstk-prgtrnbeg     ;Lange Stack                        POST Tabelle Prozesse
+prgtrnadr   dw relocate_count       ;Anzahl Einträge Relocator-Tabelle  POST Adresse Transfer-Teil
+prgprztab   dw prgstk-prgtrnbeg     ;Länge Stack                        POST Tabelle Prozesse
             dw 0                    ;*reserved*
 prgbnknum   db 0                    ;*reserved*                         POST bank number
             db "SymZilla Browser":ds 8:db 0 ;Name
@@ -101,9 +101,9 @@ prgbnknum   db 0                    ;*reserved*                         POST ban
             dw prgicn16c-prgcodbeg  ;16 colour icon offset
             ds 5                    ;*reserved*
 prgmemtab   db "SymExe10"           ;SymbOS-EXE-Kennung                 POST Tabelle Speicherbereiche
-            dw 0                            ;zusatzlicher Code-Speicher
-            dw 16380-prgtrnbeg+prgdatbeg    ;zusatzlicher Data-Speicher
-            dw renviwmax*24                 ;zusatzlicher Transfer-Speicher
+            dw 0                            ;zusätzlicher Code-Speicher
+            dw 16380-prgtrnbeg+prgdatbeg    ;zusätzlicher Data-Speicher
+            dw renviwmax*24                 ;zusätzlicher Transfer-Speicher
             ds 26                   ;*reserviert*
             db 0,3                  ;required OS version (3.0, Network Daemon API)
 prgicnsml   db 2,8,8,#30,#F0,#43,#2C,#53,#AC,#43,#2C,#53,#AC,#43,#2C,#53,#AC,#F0,#C0
@@ -115,7 +115,7 @@ prgicnbig   db 6,24,24
 ;### PRGPRZ -> Programm-Prozess
 dskprzn     db 2
 sysprzn     db 3
-windatprz   equ 3   ;Prozessnummer
+windatprz   equ 3   ;Prozeßnummer
 windatsup   equ 51  ;Nummer des Superfensters+1 oder 0
 prgwin      db 0    ;Nummer des Haupt-Fensters
 
@@ -414,14 +414,14 @@ diraddx cp "/"
         cp #5c
         ret
 
-;### MSGGET -> Message fur Programm abholen
+;### MSGGET -> Message für Programm abholen
 ;### Ausgabe    IXH=Absender, (recmsgb)=Message, A=(recmsgb+0), IY=recmsgb
 ;### Veraendert 
 msgget  ld a,(prgprzn)
-        db #dd:ld l,a           ;IXL=Rechner-Prozess-Nummer
+        db #dd:ld l,a           ;IXL=Rechner-Prozeß-Nummer
         db #dd:ld h,-1
         ld iy,prgmsgb           ;IY=Messagebuffer
-        rst #08                 ;Message holen -> IXL=Status, IXH=Absender-Prozess
+        rst #08                 ;Message holen -> IXL=Status, IXH=Absender-Prozeß
         or a
         db #dd:dec l
         jr nz,msgget
@@ -431,13 +431,13 @@ msgget  ld a,(prgprzn)
         ret nz
         jp prgend
 
-;### MSGDSK -> Message fur Programm von Desktop-Prozess abholen
+;### MSGDSK -> Message für Programm von Desktop-Prozess abholen
 ;### Ausgabe    CF=0 -> keine Message vorhanden, CF=1 -> IXH=Absender, (recmsgb)=Message, A=(recmsgb+0), IY=recmsgb
 ;### Veraendert 
 msgdsk  call msgget
         ld a,(dskprzn)
         db #dd:cp h
-        jr nz,msgdsk            ;Message von anderem als Desktop-Prozess -> ignorieren
+        jr nz,msgdsk            ;Message von anderem als Desktop-Prozeß -> ignorieren
         ld a,(prgmsgb)
         ret
 
@@ -460,10 +460,10 @@ msgsnd1 db #dd:ld h,a
         rst #10
         ret
 
-;### CLCLCS -> Wandelt Gross- in Kleinbuchstaben um
+;### CLCLCS -> Wandelt Groß- in Kleinbuchstaben um
 ;### Eingabe    A=Zeichen
 ;### Ausgabe    A=lcase(Zeichen)
-;### Verandert  F
+;### Verändert  F
 clclcs  cp "A"
         ret c
         cp "Z"+1
@@ -471,10 +471,10 @@ clclcs  cp "A"
         add "a"-"A"
         ret
 
-;### STRINP -> Initialisiert Textinput (abhangig vom String, den es bearbeitet)
+;### STRINP -> Initialisiert Textinput (abhängig vom String, den es bearbeitet)
 ;### Eingabe    IX=Control
-;### Ausgabe    HL=Stringende (0), BC=Lange (maximal 255)
-;### Verandert  AF
+;### Ausgabe    HL=Stringende (0), BC=Länge (maximal 255)
+;### Verändert  AF
 strinp  ld l,(ix+0)
         ld h,(ix+1)
         call strlen
@@ -485,10 +485,10 @@ strinp  ld l,(ix+0)
         ld (ix+6),a
         ret
 
-;### STRLEN -> Ermittelt Lange eines Strings
+;### STRLEN -> Ermittelt Länge eines Strings
 ;### Eingabe    HL=String
-;### Ausgabe    HL=Stringende (0), BC=Lange (maximal 255)
-;### Verandert  -
+;### Ausgabe    HL=Stringende (0), BC=Länge (maximal 255)
+;### Verändert  -
 strlen  push af
         xor a
         ld bc,255
@@ -3018,7 +3018,7 @@ mesini1 ld a,(hl)
         ld bc,5
         add hl,bc
         ex de,hl        ;DE=ziel+1
-        sbc hl,de       ;HL=lange
+        sbc hl,de       ;HL=länge
         ex de,hl
         ld (hl),e
         inc hl
@@ -6130,7 +6130,7 @@ db #F3,#3F,#FF,#FF,#F1,#33,#33,#33,#FF,#FF,#FF,#3F,#F1,#1F,#FF,#FF,#33,#33,#33,#
 db #A3,#13,#13,#33,#11,#FF,#FF,#FF,#FF,#11,#F1,#1F,#A1,#33,#31,#FF,#F1,#33,#11,#FF,#13,#3F,#F1,#FF,#AA,#13,#33,#13,#33,#33,#33,#33,#33,#FF,#FF,#FF,#AA,#AF,#F3,#33,#31,#11,#13,#33,#3F,#FF,#FF,#FF
 db #AA,#AA,#AF,#F1,#FF,#FA,#AF,#33,#33,#FF,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#A3,#31,#1F,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#AF,#3F,#11,#FF,#FF,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#AA,#13,#3F,#FF,#FF
 
-;### PRGPRZS -> Stack fur Programm-Prozess
+;### PRGPRZS -> Stack für Programm-Prozess
         ds 128
 prgstk  ds 6*2
         dw prgprz
